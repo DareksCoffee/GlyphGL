@@ -1,3 +1,4 @@
+![logo](https://i.imgur.com/fKiiOrx.png)
 # GlyphGL
 A lightweight, header-only text rendering library for OpenGL applications.
 
