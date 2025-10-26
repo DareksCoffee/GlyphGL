@@ -48,6 +48,7 @@ int main() {
 ---
 ## Preview
 The preview of the example above
+
 ![demo](https://i.imgur.com/esfelJe.gif)
 
 ---
