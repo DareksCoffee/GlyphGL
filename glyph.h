@@ -1,0 +1,510 @@
+/*
+    MIT License
+
+    Copyright (c) 2025 Darek
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+*/
+
+#ifndef __GLYPH_H
+#define __GLYPH_H
+
+#ifdef __cplusplus
+extern "C" {}
+#endif
+
+#include "glyph_truetype.h"
+#include "glyph_image.h"
+#include "glyph_atlas.h"
+
+#ifndef GLYPH_NO_GL_LOADER
+    #if defined(_WIN32) || defined(_WIN64)
+        #include <windows.h>
+        #include <GL/gl.h>
+    #elif defined(__APPLE__)
+        #include <TargetConditionals.h>
+        #if TARGET_OS_MAC
+            #include <OpenGL/gl.h>
+        #endif
+    #elif defined(__linux__) || defined(__unix__)
+        #include <GL/gl.h>
+    #endif
+#endif
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#ifndef GLYPH_NO_GL_LOADER
+
+typedef char GLchar;
+typedef ptrdiff_t GLsizeiptr;
+typedef ptrdiff_t GLintptr;
+
+#ifndef GL_ARRAY_BUFFER
+#define GL_ARRAY_BUFFER 0x8892
+#endif
+#ifndef GL_ELEMENT_ARRAY_BUFFER
+#define GL_ELEMENT_ARRAY_BUFFER 0x8893
+#endif
+#ifndef GL_STATIC_DRAW
+#define GL_STATIC_DRAW 0x88E4
+#endif
+#ifndef GL_DYNAMIC_DRAW
+#define GL_DYNAMIC_DRAW 0x88E8
+#endif
+#ifndef GL_FRAGMENT_SHADER
+#define GL_FRAGMENT_SHADER 0x8B30
+#endif
+#ifndef GL_VERTEX_SHADER
+#define GL_VERTEX_SHADER 0x8B31
+#endif
+#ifndef GL_COMPILE_STATUS
+#define GL_COMPILE_STATUS 0x8B81
+#endif
+#ifndef GL_LINK_STATUS
+#define GL_LINK_STATUS 0x8B82
+#endif
+#ifndef GL_INFO_LOG_LENGTH
+#define GL_INFO_LOG_LENGTH 0x8B84
+#endif
+#ifndef GL_TEXTURE0
+#define GL_TEXTURE0 0x84C0
+#endif
+#ifndef GL_CLAMP_TO_EDGE
+#define GL_CLAMP_TO_EDGE 0x812F
+#endif
+#ifndef GL_RED
+#define GL_RED 0x1903
+#endif
+#ifndef GL_FUNC_ADD
+#define GL_FUNC_ADD 0x8006
+#endif
+
+typedef void (*PFNGLGENBUFFERSPROC)(GLsizei n, GLuint *buffers);
+typedef void (*PFNGLDELETEBUFFERSPROC)(GLsizei n, const GLuint *buffers);
+typedef void (*PFNGLBINDBUFFERPROC)(GLenum target, GLuint buffer);
+typedef void (*PFNGLBUFFERDATAPROC)(GLenum target, GLsizeiptr size, const void *data, GLenum usage);
+typedef void (*PFNGLBUFFERSUBDATAPROC)(GLenum target, GLintptr offset, GLsizeiptr size, const void *data);
+typedef GLuint (*PFNGLCREATESHADERPROC)(GLenum type);
+typedef void (*PFNGLDELETESHADERPROC)(GLuint shader);
+typedef void (*PFNGLSHADERSOURCEPROC)(GLuint shader, GLsizei count, const GLchar *const*string, const GLint *length);
+typedef void (*PFNGLCOMPILESHADERPROC)(GLuint shader);
+typedef void (*PFNGLGETSHADERIVPROC)(GLuint shader, GLenum pname, GLint *params);
+typedef void (*PFNGLGETSHADERINFOLOGPROC)(GLuint shader, GLsizei bufSize, GLsizei *length, GLchar *infoLog);
+typedef GLuint (*PFNGLCREATEPROGRAMPROC)(void);
+typedef void (*PFNGLDELETEPROGRAMPROC)(GLuint program);
+typedef void (*PFNGLATTACHSHADERPROC)(GLuint program, GLuint shader);
+typedef void (*PFNGLLINKPROGRAMPROC)(GLuint program);
+typedef void (*PFNGLGETPROGRAMIVPROC)(GLuint program, GLenum pname, GLint *params);
+typedef void (*PFNGLGETPROGRAMINFOLOGPROC)(GLuint program, GLsizei bufSize, GLsizei *length, GLchar *infoLog);
+typedef void (*PFNGLUSEPROGRAMPROC)(GLuint program);
+typedef GLint (*PFNGLGETATTRIBLOCATIONPROC)(GLuint program, const GLchar *name);
+typedef GLint (*PFNGLGETUNIFORMLOCATIONPROC)(GLuint program, const GLchar *name);
+typedef void (*PFNGLVERTEXATTRIBPOINTERPROC)(GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer);
+typedef void (*PFNGLENABLEVERTEXATTRIBARRAYPROC)(GLuint index);
+typedef void (*PFNGLDISABLEVERTEXATTRIBARRAYPROC)(GLuint index);
+typedef void (*PFNGLUNIFORM1IPROC)(GLint location, GLint v0);
+typedef void (*PFNGLUNIFORM1FPROC)(GLint location, GLfloat v0);
+typedef void (*PFNGLUNIFORM2FPROC)(GLint location, GLfloat v0, GLfloat v1);
+typedef void (*PFNGLUNIFORM3FPROC)(GLint location, GLfloat v0, GLfloat v1, GLfloat v2);
+typedef void (*PFNGLUNIFORM4FPROC)(GLint location, GLfloat v0, GLfloat v1, GLfloat v2, GLfloat v3);
+typedef void (*PFNGLUNIFORMMATRIX4FVPROC)(GLint location, GLsizei count, GLboolean transpose, const GLfloat *value);
+typedef void (*PFNGLACTIVETEXTUREPROC)(GLenum texture);
+typedef void (*PFNGLGENVERTEXARRAYSPROC)(GLsizei n, GLuint *arrays);
+typedef void (*PFNGLDELETEVERTEXARRAYSPROC)(GLsizei n, const GLuint *arrays);
+typedef void (*PFNGLBINDVERTEXARRAYPROC)(GLuint array);
+
+static PFNGLGENBUFFERSPROC glyph__glGenBuffers;
+static PFNGLDELETEBUFFERSPROC glyph__glDeleteBuffers;
+static PFNGLBINDBUFFERPROC glyph__glBindBuffer;
+static PFNGLBUFFERDATAPROC glyph__glBufferData;
+static PFNGLBUFFERSUBDATAPROC glyph__glBufferSubData;
+static PFNGLCREATESHADERPROC glyph__glCreateShader;
+static PFNGLDELETESHADERPROC glyph__glDeleteShader;
+static PFNGLSHADERSOURCEPROC glyph__glShaderSource;
+static PFNGLCOMPILESHADERPROC glyph__glCompileShader;
+static PFNGLGETSHADERIVPROC glyph__glGetShaderiv;
+static PFNGLGETSHADERINFOLOGPROC glyph__glGetShaderInfoLog;
+static PFNGLCREATEPROGRAMPROC glyph__glCreateProgram;
+static PFNGLDELETEPROGRAMPROC glyph__glDeleteProgram;
+static PFNGLATTACHSHADERPROC glyph__glAttachShader;
+static PFNGLLINKPROGRAMPROC glyph__glLinkProgram;
+static PFNGLGETPROGRAMIVPROC glyph__glGetProgramiv;
+static PFNGLGETPROGRAMINFOLOGPROC glyph__glGetProgramInfoLog;
+static PFNGLUSEPROGRAMPROC glyph__glUseProgram;
+static PFNGLGETATTRIBLOCATIONPROC glyph__glGetAttribLocation;
+static PFNGLGETUNIFORMLOCATIONPROC glyph__glGetUniformLocation;
+static PFNGLVERTEXATTRIBPOINTERPROC glyph__glVertexAttribPointer;
+static PFNGLENABLEVERTEXATTRIBARRAYPROC glyph__glEnableVertexAttribArray;
+static PFNGLDISABLEVERTEXATTRIBARRAYPROC glyph__glDisableVertexAttribArray;
+static PFNGLUNIFORM1IPROC glyph__glUniform1i;
+static PFNGLUNIFORM1FPROC glyph__glUniform1f;
+static PFNGLUNIFORM2FPROC glyph__glUniform2f;
+static PFNGLUNIFORM3FPROC glyph__glUniform3f;
+static PFNGLUNIFORM4FPROC glyph__glUniform4f;
+static PFNGLUNIFORMMATRIX4FVPROC glyph__glUniformMatrix4fv;
+static PFNGLACTIVETEXTUREPROC glyph__glActiveTexture;
+static PFNGLGENVERTEXARRAYSPROC glyph__glGenVertexArrays;
+static PFNGLDELETEVERTEXARRAYSPROC glyph__glDeleteVertexArrays;
+static PFNGLBINDVERTEXARRAYPROC glyph__glBindVertexArray;
+
+#if defined(_WIN32) || defined(_WIN64)
+    #define GLYPH_GL_LOAD_PROC(type, name) \
+        glyph__##name = (type)wglGetProcAddress(#name); \
+        if (!glyph__##name) { \
+            printf("Failed to load OpenGL function: %s\n", #name); \
+            return 0; \
+        }
+#elif defined(__APPLE__)
+    #include <dlfcn.h>
+    #define GLYPH_GL_LOAD_PROC(type, name) \
+        glyph__##name = (type)dlsym(RTLD_DEFAULT, #name); \
+        if (!glyph__##name) { \
+            printf("Failed to load OpenGL function: %s\n", #name); \
+            return 0; \
+        }
+#elif defined(__linux__) || defined(__unix__)
+    #include <dlfcn.h>
+    static void* glyph__libgl_handle = NULL;
+    #define GLYPH_GL_LOAD_PROC(type, name) \
+        if (!glyph__libgl_handle) { \
+            glyph__libgl_handle = dlopen("libGL.so.1", RTLD_LAZY | RTLD_GLOBAL); \
+            if (!glyph__libgl_handle) glyph__libgl_handle = dlopen("libGL.so", RTLD_LAZY | RTLD_GLOBAL); \
+        } \
+        if (glyph__libgl_handle) { \
+            typedef void* (*glXGetProcAddressARB_t)(const GLubyte*); \
+            glXGetProcAddressARB_t glXGetProcAddressARB = (glXGetProcAddressARB_t)dlsym(glyph__libgl_handle, "glXGetProcAddressARB"); \
+            if (glXGetProcAddressARB) { \
+                glyph__##name = (type)glXGetProcAddressARB((const GLubyte*)#name); \
+            } \
+            if (!glyph__##name) glyph__##name = (type)dlsym(glyph__libgl_handle, #name); \
+        } \
+        if (!glyph__##name) { \
+            printf("Failed to load OpenGL function: %s\n", #name); \
+            return 0; \
+        }
+#endif
+
+static int glyph_gl_load_functions(void) {
+    GLYPH_GL_LOAD_PROC(PFNGLGENBUFFERSPROC, glGenBuffers);
+    GLYPH_GL_LOAD_PROC(PFNGLDELETEBUFFERSPROC, glDeleteBuffers);
+    GLYPH_GL_LOAD_PROC(PFNGLBINDBUFFERPROC, glBindBuffer);
+    GLYPH_GL_LOAD_PROC(PFNGLBUFFERDATAPROC, glBufferData);
+    GLYPH_GL_LOAD_PROC(PFNGLBUFFERSUBDATAPROC, glBufferSubData);
+    GLYPH_GL_LOAD_PROC(PFNGLCREATESHADERPROC, glCreateShader);
+    GLYPH_GL_LOAD_PROC(PFNGLDELETESHADERPROC, glDeleteShader);
+    GLYPH_GL_LOAD_PROC(PFNGLSHADERSOURCEPROC, glShaderSource);
+    GLYPH_GL_LOAD_PROC(PFNGLCOMPILESHADERPROC, glCompileShader);
+    GLYPH_GL_LOAD_PROC(PFNGLGETSHADERIVPROC, glGetShaderiv);
+    GLYPH_GL_LOAD_PROC(PFNGLGETSHADERINFOLOGPROC, glGetShaderInfoLog);
+    GLYPH_GL_LOAD_PROC(PFNGLCREATEPROGRAMPROC, glCreateProgram);
+    GLYPH_GL_LOAD_PROC(PFNGLDELETEPROGRAMPROC, glDeleteProgram);
+    GLYPH_GL_LOAD_PROC(PFNGLATTACHSHADERPROC, glAttachShader);
+    GLYPH_GL_LOAD_PROC(PFNGLLINKPROGRAMPROC, glLinkProgram);
+    GLYPH_GL_LOAD_PROC(PFNGLGETPROGRAMIVPROC, glGetProgramiv);
+    GLYPH_GL_LOAD_PROC(PFNGLGETPROGRAMINFOLOGPROC, glGetProgramInfoLog);
+    GLYPH_GL_LOAD_PROC(PFNGLUSEPROGRAMPROC, glUseProgram);
+    GLYPH_GL_LOAD_PROC(PFNGLGETATTRIBLOCATIONPROC, glGetAttribLocation);
+    GLYPH_GL_LOAD_PROC(PFNGLGETUNIFORMLOCATIONPROC, glGetUniformLocation);
+    GLYPH_GL_LOAD_PROC(PFNGLVERTEXATTRIBPOINTERPROC, glVertexAttribPointer);
+    GLYPH_GL_LOAD_PROC(PFNGLENABLEVERTEXATTRIBARRAYPROC, glEnableVertexAttribArray);
+    GLYPH_GL_LOAD_PROC(PFNGLDISABLEVERTEXATTRIBARRAYPROC, glDisableVertexAttribArray);
+    GLYPH_GL_LOAD_PROC(PFNGLUNIFORM1IPROC, glUniform1i);
+    GLYPH_GL_LOAD_PROC(PFNGLUNIFORM1FPROC, glUniform1f);
+    GLYPH_GL_LOAD_PROC(PFNGLUNIFORM2FPROC, glUniform2f);
+    GLYPH_GL_LOAD_PROC(PFNGLUNIFORM3FPROC, glUniform3f);
+    GLYPH_GL_LOAD_PROC(PFNGLUNIFORM4FPROC, glUniform4f);
+    GLYPH_GL_LOAD_PROC(PFNGLUNIFORMMATRIX4FVPROC, glUniformMatrix4fv);
+    GLYPH_GL_LOAD_PROC(PFNGLACTIVETEXTUREPROC, glActiveTexture);
+    GLYPH_GL_LOAD_PROC(PFNGLGENVERTEXARRAYSPROC, glGenVertexArrays);
+    GLYPH_GL_LOAD_PROC(PFNGLDELETEVERTEXARRAYSPROC, glDeleteVertexArrays);
+    GLYPH_GL_LOAD_PROC(PFNGLBINDVERTEXARRAYPROC, glBindVertexArray);
+    
+    return 1;
+}
+
+#else
+
+#define glyph__glGenBuffers glGenBuffers
+#define glyph__glDeleteBuffers glDeleteBuffers
+#define glyph__glBindBuffer glBindBuffer
+#define glyph__glBufferData glBufferData
+#define glyph__glBufferSubData glBufferSubData
+#define glyph__glCreateShader glCreateShader
+#define glyph__glDeleteShader glDeleteShader
+#define glyph__glShaderSource glShaderSource
+#define glyph__glCompileShader glCompileShader
+#define glyph__glGetShaderiv glGetShaderiv
+#define glyph__glGetShaderInfoLog glGetShaderInfoLog
+#define glyph__glCreateProgram glCreateProgram
+#define glyph__glDeleteProgram glDeleteProgram
+#define glyph__glAttachShader glAttachShader
+#define glyph__glLinkProgram glLinkProgram
+#define glyph__glGetProgramiv glGetProgramiv
+#define glyph__glGetProgramInfoLog glGetProgramInfoLog
+#define glyph__glUseProgram glUseProgram
+#define glyph__glGetAttribLocation glGetAttribLocation
+#define glyph__glGetUniformLocation glGetUniformLocation
+#define glyph__glVertexAttribPointer glVertexAttribPointer
+#define glyph__glEnableVertexAttribArray glEnableVertexAttribArray
+#define glyph__glDisableVertexAttribArray glDisableVertexAttribArray
+#define glyph__glUniform1i glUniform1i
+#define glyph__glUniform1f glUniform1f
+#define glyph__glUniform2f glUniform2f
+#define glyph__glUniform3f glUniform3f
+#define glyph__glUniform4f glUniform4f
+#define glyph__glUniformMatrix4fv glUniformMatrix4fv
+#define glyph__glActiveTexture glActiveTexture
+#define glyph__glGenVertexArrays glGenVertexArrays
+#define glyph__glDeleteVertexArrays glDeleteVertexArrays
+#define glyph__glBindVertexArray glBindVertexArray
+
+static int glyph_gl_load_functions(void) {
+    return 1;
+}
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+
+typedef struct {
+    glyph_atlas_t atlas;
+    GLuint texture;
+    GLuint shader;
+    GLuint vao;
+    GLuint vbo;
+    int initialized;
+} glyph_renderer_t;
+
+static const char* glyph__vertex_shader_source = 
+"#version 330 core\n"
+"layout (location = 0) in vec2 aPos;\n"
+"layout (location = 1) in vec2 aTexCoord;\n"
+"out vec2 TexCoord;\n"
+"uniform mat4 projection;\n"
+"void main() {\n"
+"    gl_Position = projection * vec4(aPos, 0.0, 1.0);\n"
+"    TexCoord = aTexCoord;\n"
+"}\n";
+
+static const char* glyph__fragment_shader_source = 
+"#version 330 core\n"
+"in vec2 TexCoord;\n"
+"out vec4 FragColor;\n"
+"uniform sampler2D textTexture;\n"
+"uniform vec3 textColor;\n"
+"void main() {\n"
+"    float alpha = texture(textTexture, TexCoord).r;\n"
+"    FragColor = vec4(textColor, alpha);\n"
+"}\n";
+
+static GLuint glyph__compile_shader(GLenum type, const char* source) {
+    GLuint shader = glyph__glCreateShader(type);
+    glyph__glShaderSource(shader, 1, &source, NULL);
+    glyph__glCompileShader(shader);
+    
+    GLint success;
+    glyph__glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        char info_log[512];
+        glyph__glGetShaderInfoLog(shader, 512, NULL, info_log);
+        printf("Shader compilation failed: %s\n", info_log);
+        glyph__glDeleteShader(shader);
+        return 0;
+    }
+    
+    return shader;
+}
+
+static GLuint glyph__create_program(const char* vertex_source, const char* fragment_source) {
+    GLuint vertex_shader = glyph__compile_shader(GL_VERTEX_SHADER, vertex_source);
+    if (!vertex_shader) return 0;
+    
+    GLuint fragment_shader = glyph__compile_shader(GL_FRAGMENT_SHADER, fragment_source);
+    if (!fragment_shader) {
+        glyph__glDeleteShader(vertex_shader);
+        return 0;
+    }
+    
+    GLuint program = glyph__glCreateProgram();
+    glyph__glAttachShader(program, vertex_shader);
+    glyph__glAttachShader(program, fragment_shader);
+    glyph__glLinkProgram(program);
+    
+    GLint success;
+    glyph__glGetProgramiv(program, GL_LINK_STATUS, &success);
+    if (!success) {
+        char info_log[512];
+        glyph__glGetProgramInfoLog(program, 512, NULL, info_log);
+        printf("Program linking failed: %s\n", info_log);
+        glyph__glDeleteProgram(program);
+        glyph__glDeleteShader(vertex_shader);
+        glyph__glDeleteShader(fragment_shader);
+        return 0;
+    }
+    
+    glyph__glDeleteShader(vertex_shader);
+    glyph__glDeleteShader(fragment_shader);
+    
+    return program;
+}
+
+glyph_renderer_t glyph_renderer_create(const char* font_path, float pixel_height, const char* charset) {
+    glyph_renderer_t renderer = {0};
+    
+    if (!glyph_gl_load_functions()) {
+        printf("Failed to load OpenGL functions\n");
+        return renderer;
+    }
+    
+    renderer.atlas = glyph_atlas_create(font_path, pixel_height, charset);
+    if (!renderer.atlas.chars || !renderer.atlas.image.data) {
+        printf("Failed to create font atlas\n");
+        return renderer;
+    }
+    
+    unsigned char* red_channel = (unsigned char*)malloc(renderer.atlas.image.width * renderer.atlas.image.height);
+    if (!red_channel) {
+        glyph_atlas_free(&renderer.atlas);
+        return renderer;
+    }
+    
+    for (unsigned int i = 0; i < renderer.atlas.image.width * renderer.atlas.image.height; i++) {
+        red_channel[i] = renderer.atlas.image.data[i * 3];
+    }
+    
+    glGenTextures(1, &renderer.texture);
+    glBindTexture(GL_TEXTURE_2D, renderer.texture);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, renderer.atlas.image.width, renderer.atlas.image.height, 
+                 0, GL_RED, GL_UNSIGNED_BYTE, red_channel);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    
+    free(red_channel);
+    
+    renderer.shader = glyph__create_program(glyph__vertex_shader_source, glyph__fragment_shader_source);
+    if (!renderer.shader) {
+        glDeleteTextures(1, &renderer.texture);
+        glyph_atlas_free(&renderer.atlas);
+        return renderer;
+    }
+    
+    glyph__glGenVertexArrays(1, &renderer.vao);
+    glyph__glGenBuffers(1, &renderer.vbo);
+    glyph__glBindVertexArray(renderer.vao);
+    glyph__glBindBuffer(GL_ARRAY_BUFFER, renderer.vbo);
+    glyph__glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 24, NULL, GL_DYNAMIC_DRAW);
+    glyph__glEnableVertexAttribArray(0);
+    glyph__glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glyph__glEnableVertexAttribArray(1);
+    glyph__glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    glyph__glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glyph__glBindVertexArray(0);
+    
+    renderer.initialized = 1;
+    return renderer;
+}
+
+void glyph_renderer_free(glyph_renderer_t* renderer) {
+    if (!renderer || !renderer->initialized) return;
+    
+    glyph__glDeleteVertexArrays(1, &renderer->vao);
+    glyph__glDeleteBuffers(1, &renderer->vbo);
+    glDeleteTextures(1, &renderer->texture);
+    glyph__glDeleteProgram(renderer->shader);
+    glyph_atlas_free(&renderer->atlas);
+    
+    renderer->initialized = 0;
+}
+
+void glyph_renderer_set_projection(glyph_renderer_t* renderer, int width, int height) {
+    if (!renderer || !renderer->initialized) return;
+    
+    float projection[16] = {
+        2.0f / width, 0.0f, 0.0f, 0.0f,
+        0.0f, -2.0f / height, 0.0f, 0.0f,
+        0.0f, 0.0f, -1.0f, 0.0f,
+        -1.0f, 1.0f, 0.0f, 1.0f
+    };
+    
+    glyph__glUseProgram(renderer->shader);
+    glyph__glUniformMatrix4fv(glyph__glGetUniformLocation(renderer->shader, "projection"), 1, GL_FALSE, projection);
+    glyph__glUseProgram(0);
+}
+
+void glyph_renderer_draw_text(glyph_renderer_t* renderer, const char* text, float x, float y, float scale, 
+                              float r, float g, float b) {
+    if (!renderer || !renderer->initialized) return;
+    
+    glyph__glUseProgram(renderer->shader);
+    glyph__glBindVertexArray(renderer->vao);
+    glyph__glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, renderer->texture);
+    glyph__glUniform1i(glyph__glGetUniformLocation(renderer->shader, "textTexture"), 0);
+    glyph__glUniform3f(glyph__glGetUniformLocation(renderer->shader, "textColor"), r, g, b);
+    
+    float current_x = x;
+    for (size_t i = 0; i < strlen(text); ++i) {
+        int codepoint = (unsigned char)text[i];
+        glyph_atlas_char_t* ch = glyph_atlas_find_char(&renderer->atlas, codepoint);
+        if (!ch || ch->width == 0) {
+            current_x += ch ? ch->advance * scale : 0;
+            continue;
+        }
+        
+        float xpos = current_x + ch->xoff * scale;
+        float ypos = y - ch->yoff * scale;
+        float w = ch->width * scale;
+        float h = ch->height * scale;
+        
+        float tex_x1 = (float)ch->x / renderer->atlas.image.width;
+        float tex_y1 = (float)ch->y / renderer->atlas.image.height;
+        float tex_x2 = (float)(ch->x + ch->width) / renderer->atlas.image.width;
+        float tex_y2 = (float)(ch->y + ch->height) / renderer->atlas.image.height;
+        
+        float vertices[24] = {
+            xpos,     ypos + h,   tex_x1, tex_y2,
+            xpos,     ypos,       tex_x1, tex_y1,
+            xpos + w, ypos,       tex_x2, tex_y1,
+            
+            xpos,     ypos + h,   tex_x1, tex_y2,
+            xpos + w, ypos,       tex_x2, tex_y1,
+            xpos + w, ypos + h,   tex_x2, tex_y2
+        };
+        
+        glyph__glBindBuffer(GL_ARRAY_BUFFER, renderer->vbo);
+        glyph__glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+        glyph__glBindBuffer(GL_ARRAY_BUFFER, 0);
+        
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        
+        current_x += ch->advance * scale;
+    }
+    
+    glyph__glBindVertexArray(0);
+    glyph__glUseProgram(0);
+}
+
+#endif
