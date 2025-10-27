@@ -1,7 +1,7 @@
-![logo](https://i.imgur.com/fKiiOrx.png)
-# GlyphGL
+# GlyphGL - Header only OpenGL text renderer
 A lightweight, header-only text rendering library for OpenGL applications.
 
+![logo](https://i.imgur.com/fKiiOrx.png)
 ---
 
 ## Example
