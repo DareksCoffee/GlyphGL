@@ -1,43 +1,65 @@
-# GlyphGL - Header only OpenGL text renderer
-A lightweight, header-only text rendering library for OpenGL applications.
+# GlyphGL
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+A lightweight, header-only text rendering library for OpenGL applications. GlyphGL provides efficient TrueType font rendering with atlas-based texturing, supporting modern OpenGL contexts.
 
 ![logo](https://i.imgur.com/fKiiOrx.png)
----
 
-## Example
+## Features
+
+- **Header-only**: No compilation required, just include and use
+- **Zero dependencies**: Custom OpenGL loader for cross-platform compatibility
+- **TrueType support**: Built-in font parsing and rasterization
+- **Atlas-based rendering**: Efficient texture packing for optimal performance
+- **Text styling**: Support for bold, italic, and underline effects
+- **Modern OpenGL**: Compatible with OpenGL 3.3+ contexts
+- **Cross-platform**: Works on Windows, macOS, and Linux
+
+## Quick Start
+
+## Installation
+
+1. Download the header files: `glyph.h`, `glyph_truetype.h`, `glyph_atlas.h`, `glyph_gl.h`, `glyph_image.h`
+2. Include `glyph.h` in your project
+3. Link against OpenGL and any required system libraries
+
+## Usage Example
+
 ```c
 #include <GLFW/glfw3.h>
 #include "glyph.h"
-#include <math.h>
 
 int main() {
+    // Initialize GLFW and create OpenGL context
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    GLFWwindow* window = glfwCreateWindow(800, 600, "GlyphGL Showcase", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(800, 600, "GlyphGL Demo", NULL, NULL);
     glfwMakeContextCurrent(window);
 
-    glyph_renderer_t renderer = glyph_renderer_create("tests/font.ttf", 64.0f, NULL);
+    // Create renderer with Arial font at 64px height
+    glyph_renderer_t renderer = glyph_renderer_create("font.ttf", 64.0f, NULL);
+
+    // Set up projection matrix for 800x600 window
     glyph_renderer_set_projection(&renderer, 800, 600);
+
+    // Enable alpha blending
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    float time = 0.0f;
-
     while (!glfwWindowShouldClose(window)) {
-        glClearColor(0.05f, 0.05f, 0.08f, 1.0f);
+        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        float r = 0.5f + 0.5f * sin(time * 1.3f);
-        float g = 0.5f + 0.5f * sin(time * 1.3f + 2.0f);
-        float b = 0.5f + 0.5f * sin(time * 1.3f + 4.0f);
+        // Draw colored text
+        glyph_renderer_draw_text(&renderer, "Hello, GlyphGL!", 50.0f, 300.0f, 1.0f, 1.0f, 1.0f, 1.0f, GLYPH_NONE);
 
-        glyph_renderer_draw_text(&renderer, "GlyphGL", 260.0f, 320.0f, 1.0f, r, g, b);
-        glyph_renderer_draw_text(&renderer, "Simple. Fast. Beautiful.", 200.0f, 250.0f, 0.6f, 1.0f, 1.0f, 1.0f);
+        // Draw styled text
+        glyph_renderer_draw_text(&renderer, "Bold Text", 50.0f, 200.0f, 0.8f, 1.0f, 0.5f, 0.0f, GLYPHGL_BOLD);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
-        time += 0.01f;
     }
 
     glyph_renderer_free(&renderer);
@@ -46,21 +68,32 @@ int main() {
     return 0;
 }
 ```
----
-## Preview
-The preview of the example above
+## API Reference
+
+### Core Functions
+
+- `glyph_renderer_create(const char* font_path, float pixel_height, const char* charset)` - Initialize a text renderer
+- `glyph_renderer_free(glyph_renderer_t* renderer)` - Clean up renderer resources
+- `glyph_renderer_set_projection(glyph_renderer_t* renderer, int width, int height)` - Set projection matrix
+- `glyph_renderer_update_projection(glyph_renderer_t* renderer, int width, int height)` - Update the projection matrix
+- `glyph_renderer_draw_text(glyph_renderer_t* renderer, const char* text, float x, float y, float scale, float r, float g, float b, int effects)` - Render text
+
+### Text Effects
+
+- `GLYPHGL_BOLD` - Render text in bold
+- `GLYPHGL_ITALIC` - Render text in italic
+- `GLYPHGL_UNDERLINE` - Add underline to text
+- `GLYPH_NONE` - No effects
+
+## Demo
 
 ![demo](https://i.imgur.com/esfelJe.gif)
 
----
-## Files
 
-- `glyph.h` - Main header with OpenGL renderer functions
-- `glyph_truetype.h` - TrueType font parsing and glyph rasterization
-- `glyph_atlas.h` - Font atlas creation and glyph packing
-- `glyph_image.h` - Image handling and file I/O (PNG/BMP)
-  
----
+## Contributing
+
+Contributions are welcome! Please feel free to submit issues and pull requests.
+
 ## License
 
-MIT License - see the license headers in the source files for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details or the license headers in the source files.
