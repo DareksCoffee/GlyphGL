@@ -25,10 +25,6 @@
 #ifndef __GLYPH_ATLAS_H
 #define __GLYPH_ATLAS_H
 
-#ifdef __cplusplus
-extern "C" {}
-#endif
-
 #include "glyph_image.h"
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -358,9 +354,5 @@ void glyph_atlas_print_info(glyph_atlas_t* atlas) {
                c->xoff, c->yoff, c->advance);
     }
 }
-
-#ifdef __cplusplus
-extern "C" {}
-#endif
 
 #endif
