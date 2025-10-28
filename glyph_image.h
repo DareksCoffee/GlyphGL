@@ -25,10 +25,6 @@
 #ifndef __GLYPH_IMAGE_h
 #define __GLYPH_IMAGE_h
 
-#ifdef __cplusplus
-extern "C" {}
-#endif
-
 // Cross-platform includes
 #if defined(_WIN32) || defined(_WIN64)
     #include <windows.h>
@@ -327,7 +323,5 @@ static int glyph_write_png(const char* filename, glyph_image_t* img) {
     fclose(f);
     return 0;
 }
-
-
 
 #endif

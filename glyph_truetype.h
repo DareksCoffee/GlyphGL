@@ -26,10 +26,6 @@
 #ifndef __GLYPH_TTF_H
 #define __GLYPH_TTF_H
 
-#ifdef __cplusplus
-extern "C" {}
-#endif
-
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -92,17 +88,22 @@ static int glyph_ttf__find_table(const unsigned char* data, int fontstart, const
 }
 
 static int glyph_ttf__get16(const unsigned char* data, int offset) {
-    int val = (data[offset] << 8) | data[offset+1];
-    if (val & 0x8000) val -= 0x10000;
-    return val;
+    uint16_t val;
+    memcpy(&val, data + offset, 2);
+    val = __builtin_bswap16(val);
+    return (int16_t)val;
 }
 
 static unsigned int glyph_ttf__get16u(const unsigned char* data, int offset) {
-    return (data[offset] << 8) | data[offset+1];
+    uint16_t val;
+    memcpy(&val, data + offset, 2);
+    return __builtin_bswap16(val);
 }
 
 static int glyph_ttf__get32(const unsigned char* data, int offset) {
-    return (data[offset] << 24) | (data[offset+1] << 16) | (data[offset+2] << 8) | data[offset+3];
+    uint32_t val;
+    memcpy(&val, data + offset, 4);
+    return __builtin_bswap32(val);
 }
 
 int glyph_ttf_init(glyph_font_t* font, const unsigned char* data, int offset) {
@@ -234,15 +235,10 @@ float glyph_ttf_scale_for_pixel_height(const glyph_font_t* font, float pixels) {
 }
 
 static int glyph_ttf__get_glyph_offset(const glyph_font_t* font, int glyph_index) {
-    int g1, g2;
     const unsigned char* data = font->data;
-    if (font->indexToLocFormat == 0) {
-        g1 = font->glyf + glyph_ttf__get16u(data, font->loca + glyph_index * 2) * 2;
-        g2 = font->glyf + glyph_ttf__get16u(data, font->loca + glyph_index * 2 + 2) * 2;
-    } else {
-        g1 = font->glyf + glyph_ttf__get32(data, font->loca + glyph_index * 4);
-        g2 = font->glyf + glyph_ttf__get32(data, font->loca + glyph_index * 4 + 4);
-    }
+    int offset = font->loca + glyph_index * (font->indexToLocFormat ? 4 : 2);
+    int g1 = font->glyf + (font->indexToLocFormat ? glyph_ttf__get32(data, offset) : glyph_ttf__get16u(data, offset) * 2);
+    int g2 = font->glyf + (font->indexToLocFormat ? glyph_ttf__get32(data, offset + 4) : glyph_ttf__get16u(data, offset + 2) * 2);
     return g1 == g2 ? -1 : g1;
 }
 
@@ -422,11 +418,12 @@ unsigned char* glyph_ttf_get_glyph_bitmap(const glyph_font_t* font, int glyph_in
 
         int x = 0;
         for (int i = 0; i < n_points; ++i) {
-            if (point_flags[i] & 2) {
+            unsigned char flag = point_flags[i];
+            if (flag & 2) {
                 int dx = data[data_index++];
-                if (!(point_flags[i] & 16)) dx = -dx;
+                if (!(flag & 16)) dx = -dx;
                 x += dx;
-            } else if (!(point_flags[i] & 16)) {
+            } else if (!(flag & 16)) {
                 x += glyph_ttf__get16(data, data_index);
                 data_index += 2;
             }
@@ -435,11 +432,12 @@ unsigned char* glyph_ttf_get_glyph_bitmap(const glyph_font_t* font, int glyph_in
 
         int y = 0;
         for (int i = 0; i < n_points; ++i) {
-            if (point_flags[i] & 4) {
+            unsigned char flag = point_flags[i];
+            if (flag & 4) {
                 int dy = data[data_index++];
-                if (!(point_flags[i] & 32)) dy = -dy;
+                if (!(flag & 32)) dy = -dy;
                 y += dy;
-            } else if (!(point_flags[i] & 32)) {
+            } else if (!(flag & 32)) {
                 y += glyph_ttf__get16(data, data_index);
                 data_index += 2;
             }
@@ -522,7 +520,6 @@ unsigned char* glyph_ttf_get_glyph_bitmap(const glyph_font_t* font, int glyph_in
 void glyph_ttf_free_bitmap(unsigned char* bitmap) {
     free(bitmap);
 }
-
 
 #endif
 
