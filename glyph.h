@@ -40,6 +40,10 @@
  * v1.0.3 | 2025-10-29
  * | - Added vertex batching as per the request from u/MGJared
  * | - Implemented custom memory allocation macros (GLYPH_MALLOC, GLYPH_FREE, GLYPH_REALLOC), for now relatively basic
+ * v1.0.4 | 2025-10-29
+ * | - Fixed memory fragmentation issue in glyph_renderer_draw_text by implementing a persistent vertex buffer
+ * | - Replaced per-draw dynamic allocation with pre-allocated buffer that grows as needed
+ * | - Reduces allocations from O(text_length) to O(1) for better performance in high-frequency rendering
  * ========================================================
  */
 
@@ -77,6 +81,8 @@ typedef struct {
     GLuint shader;
     GLuint vao;
     GLuint vbo;
+    float* vertex_buffer;
+    size_t vertex_buffer_size;
     int initialized;
     uint32_t char_type;
 } glyph_renderer_t;
@@ -138,19 +144,31 @@ glyph_renderer_t glyph_renderer_create(const char* font_path, float pixel_height
     glyph__glBindBuffer(GL_ARRAY_BUFFER, 0);
     glyph__glBindVertexArray(0);
 
+    renderer.vertex_buffer_size = 73728 * 4; // Initial size for vertices (float * 4 per vertex)
+    renderer.vertex_buffer = (float*)GLYPH_MALLOC(sizeof(float) * renderer.vertex_buffer_size);
+    if (!renderer.vertex_buffer) {
+        glyph__glDeleteVertexArrays(1, &renderer.vao);
+        glyph__glDeleteBuffers(1, &renderer.vbo);
+        glDeleteTextures(1, &renderer.texture);
+        glyph__glDeleteProgram(renderer.shader);
+        glyph_atlas_free(&renderer.atlas);
+        return renderer;
+    }
+
     renderer.initialized = 1;
     return renderer;
 }
 
 void glyph_renderer_free(glyph_renderer_t* renderer) {
     if (!renderer || !renderer->initialized) return;
-    
+
     glyph__glDeleteVertexArrays(1, &renderer->vao);
     glyph__glDeleteBuffers(1, &renderer->vbo);
     glDeleteTextures(1, &renderer->texture);
     glyph__glDeleteProgram(renderer->shader);
     glyph_atlas_free(&renderer->atlas);
-    
+    GLYPH_FREE(renderer->vertex_buffer);
+
     renderer->initialized = 0;
 }
 
@@ -197,8 +215,15 @@ void glyph_renderer_draw_text(glyph_renderer_t* renderer, const char* text, floa
     glyph__glUniform1i(glyph__glGetUniformLocation(renderer->shader, "effects"), effects);
 
     size_t text_len = strlen(text);
-    float* vertices = (float*)GLYPH_MALLOC(sizeof(float) * 24 * text_len * 3);
-    if (!vertices) return;
+    size_t required_size = sizeof(float) * 24 * text_len * 3; // Estimate based on max effects (normal + bold + underline)
+    if (required_size > renderer->vertex_buffer_size) {
+        size_t new_size = required_size * 2; // Double the size to minimize reallocations
+        float* new_buffer = (float*)GLYPH_REALLOC(renderer->vertex_buffer, new_size);
+        if (!new_buffer) return;
+        renderer->vertex_buffer = new_buffer;
+        renderer->vertex_buffer_size = new_size;
+    }
+    float* vertices = renderer->vertex_buffer;
     size_t vertex_count = 0;
 
     float current_x = x;
@@ -297,7 +322,7 @@ void glyph_renderer_draw_text(glyph_renderer_t* renderer, const char* text, floa
 
     glDrawArrays(GL_TRIANGLES, 0, vertex_count);
 
-    GLYPH_FREE(vertices);
+    // No need to free vertices as it's now pre-allocated
 
     glyph__glBindVertexArray(0);
     glyph__glUseProgram(0);
