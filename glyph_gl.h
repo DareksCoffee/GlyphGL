@@ -42,6 +42,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <cstddef>
 
 #ifndef GLYPH_NO_GL_LOADER
 
@@ -161,7 +162,7 @@ static PFNGLBINDVERTEXARRAYPROC glyph__glBindVertexArray;
     #define GLYPH_GL_LOAD_PROC(type, name) \
         glyph__##name = (type)wglGetProcAddress(#name); \
         if (!glyph__##name) { \
-            printf("Failed to load OpenGL function: %s\n", #name); \
+            GLYPH_LOG("Failed to load OpenGL function: %s\n", #name); \
             return 0; \
         }
 #elif defined(__APPLE__)
@@ -169,7 +170,7 @@ static PFNGLBINDVERTEXARRAYPROC glyph__glBindVertexArray;
     #define GLYPH_GL_LOAD_PROC(type, name) \
         glyph__##name = (type)dlsym(RTLD_DEFAULT, #name); \
         if (!glyph__##name) { \
-            printf("Failed to load OpenGL function: %s\n", #name); \
+            GLYPH_LOG("Failed to load OpenGL function: %s\n", #name); \
             return 0; \
         }
 #elif defined(__linux__) || defined(__unix__)
@@ -189,7 +190,7 @@ static PFNGLBINDVERTEXARRAYPROC glyph__glBindVertexArray;
             if (!glyph__##name) glyph__##name = (type)dlsym(glyph__libgl_handle, #name); \
         } \
         if (!glyph__##name) { \
-            printf("Failed to load OpenGL function: %s\n", #name); \
+            GLYPH_LOG("Failed to load OpenGL function: %s\n", #name); \
             return 0; \
         }
 #endif
@@ -312,7 +313,7 @@ static GLuint glyph__compile_shader(GLenum type, const char* source) {
     if (!success) {
         char info_log[512];
         glyph__glGetShaderInfoLog(shader, 512, NULL, info_log);
-        printf("Shader compilation failed: %s\n", info_log);
+        GLYPH_LOG("Shader compilation failed: %s\n", info_log);
         glyph__glDeleteShader(shader);
         return 0;
     }
@@ -340,7 +341,7 @@ static GLuint glyph__create_program(const char* vertex_source, const char* fragm
     if (!success) {
         char info_log[512];
         glyph__glGetProgramInfoLog(program, 512, NULL, info_log);
-        printf("Program linking failed: %s\n", info_log);
+        GLYPH_LOG("Program linking failed: %s\n", info_log);
         glyph__glDeleteProgram(program);
         glyph__glDeleteShader(vertex_shader);
         glyph__glDeleteShader(fragment_shader);

@@ -531,33 +531,44 @@ static void glyph_ttf_debug_glyph(const glyph_font_t* font, int glyph_index) {
     const unsigned char* data = font->data;
     int g = glyph_ttf__get_glyph_offset(font, glyph_index);
     if (g < 0) {
-        printf("Empty glyph\n");
+        #ifdef GLYPHGL_DEBUG
+        GLYPH_LOG("Empty glyph\n");
+        #endif
         return;
     }
 
     int numberOfContours = glyph_ttf__get16(data, g);
-    printf("Number of contours: %d\n", numberOfContours);
+    #ifdef GLYPHGL_DEBUG
+    GLYPH_LOG("Number of contours: %d\n", numberOfContours);
+    #endif
 
     if (numberOfContours > 0) {
         int xMin = glyph_ttf__get16(data, g + 2);
         int yMin = glyph_ttf__get16(data, g + 4);
         int xMax = glyph_ttf__get16(data, g + 6);
         int yMax = glyph_ttf__get16(data, g + 8);
-        printf("Bounding box: (%d,%d) to (%d,%d)\n", xMin, yMin, xMax, yMax);
+        GLYPH_LOG("Bounding box: (%d,%d) to (%d,%d)\n", xMin, yMin, xMax, yMax);
 
         int endPtsOfContours = g + 10;
-        printf("End points of contours:\n");
+        #ifdef GLYPHGL_DEBUG
+        GLYPH_LOG("End points of contours:\n");
+        #endif
         for (int i = 0; i < numberOfContours; ++i) {
             int endPt = glyph_ttf__get16u(data, endPtsOfContours + i * 2);
-            printf("  Contour %d: ends at point %d\n", i, endPt);
+            #ifdef GLYPHGL_DEBUG
+            GLYPH_LOG("  Contour %d: ends at point %d\n", i, endPt);
+            #endif
         }
 
         int instructionLength = glyph_ttf__get16u(data, endPtsOfContours + numberOfContours * 2);
-        printf("Instruction length: %d\n", instructionLength);
-
+        #ifdef GLYPHGL_DEBUG
+        GLYPH_LOG("Instruction length: %d\n", instructionLength);
+        #endif
         int lastEndPt = glyph_ttf__get16u(data, endPtsOfContours + (numberOfContours - 1) * 2);
         int totalPoints = lastEndPt + 1;
-        printf("Total points: %d\n", totalPoints);
+        #ifdef GLYPHGL_DEBUG
+        GLYPH_LOG("Total points: %d\n", totalPoints);
+        #endif
     }
 }
 
