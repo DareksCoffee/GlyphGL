@@ -31,30 +31,45 @@
  * | - Zero-dependency GL loader (cross-platform).
  * | - Atlas-based rendering (GL_RED).
  *
- * v1.0.1 | 2025-10-28
+ * v1.0.2 | 2025-10-28
  * | - Added 'glyph_renderer_update_projection' for handling window resize events.
  * | - Implemented text styling via bitmask: GLYPHGL_BOLD, GLYPHGL_UNDERLINE, GLYPHGL_ITALIC.
  * | - Optimized endianness conversions
  * | - Optimized contour decoding in 'glyph_ttf_get_glyph_bitmap' 
  * | - Optimized offset lookups in 'glyph_ttf__get_glyph_offset'
- *
+ * v1.0.3 | 2025-10-29
+ * | - Added vertex batching as per the request from u/MGJared
+ * | - Implemented custom memory allocation macros (GLYPH_MALLOC, GLYPH_FREE, GLYPH_REALLOC), for now relatively basic
  * ========================================================
  */
 
 #ifndef __GLYPH_H
 #define __GLYPH_H
 
+#include <stdlib.h>
 #include "glyph_truetype.h"
 #include "glyph_image.h"
 #include "glyph_atlas.h"
 #include "glyph_gl.h"
+#include "glyph_util.h"
 
 #define GLYPHGL_BOLD        (1 << 0)
 #define GLYPHGL_ITALIC      (1 << 1)
 #define GLYPHGL_UNDERLINE   (1 << 2)
 
 #define GLYPH_NONE           0
+#define GLYPH_UTF8           0x010
+#define GLYPH_ASCII          0x020
 
+
+/*
+    Default charsets for the atlas
+*/
+#define GLYPHGL_CHARSET_BASIC "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%%^&*()_+-=,./?|\n"
+#define GLYPHGL_CHARSET_DEFAULT GLYPHGL_CHARSET_BASIC "€£¥¢₹₽±×÷√∫πΩ°∞≠≈≤≥∑∏∂∇∀∃∈∉⊂⊃∩∪←↑→↓"
+
+
+int glyph_utf8_decode(const char* str, size_t* index);
 
 typedef struct {
     glyph_atlas_t atlas;
@@ -63,64 +78,66 @@ typedef struct {
     GLuint vao;
     GLuint vbo;
     int initialized;
+    uint32_t char_type;
 } glyph_renderer_t;
 
 
-glyph_renderer_t glyph_renderer_create(const char* font_path, float pixel_height, const char* charset) {
+glyph_renderer_t glyph_renderer_create(const char* font_path, float pixel_height, const char* charset, uint32_t char_type) {
     glyph_renderer_t renderer = {0};
-    
+
     if (!glyph_gl_load_functions()) {
         printf("Failed to load OpenGL functions\n");
         return renderer;
     }
-    
-    renderer.atlas = glyph_atlas_create(font_path, pixel_height, charset);
+
+    renderer.char_type = char_type;
+    renderer.atlas = glyph_atlas_create(font_path, pixel_height, charset, char_type);
     if (!renderer.atlas.chars || !renderer.atlas.image.data) {
         printf("Failed to create font atlas\n");
         return renderer;
     }
-    
-    unsigned char* red_channel = (unsigned char*)malloc(renderer.atlas.image.width * renderer.atlas.image.height);
+
+    unsigned char* red_channel = (unsigned char*)GLYPH_MALLOC(renderer.atlas.image.width * renderer.atlas.image.height);
     if (!red_channel) {
         glyph_atlas_free(&renderer.atlas);
         return renderer;
     }
-    
+
     for (unsigned int i = 0; i < renderer.atlas.image.width * renderer.atlas.image.height; i++) {
         red_channel[i] = renderer.atlas.image.data[i * 3];
     }
-    
+
     glGenTextures(1, &renderer.texture);
     glBindTexture(GL_TEXTURE_2D, renderer.texture);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, renderer.atlas.image.width, renderer.atlas.image.height, 
-                 0, GL_RED, GL_UNSIGNED_BYTE, red_channel);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, renderer.atlas.image.width, renderer.atlas.image.height,
+                  0, GL_RED, GL_UNSIGNED_BYTE, red_channel);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    
-    free(red_channel);
-    
+
+    GLYPH_FREE(red_channel);
+
     renderer.shader = glyph__create_program(glyph__vertex_shader_source, glyph__fragment_shader_source);
     if (!renderer.shader) {
         glDeleteTextures(1, &renderer.texture);
         glyph_atlas_free(&renderer.atlas);
         return renderer;
     }
-    
+
     glyph__glGenVertexArrays(1, &renderer.vao);
     glyph__glGenBuffers(1, &renderer.vbo);
     glyph__glBindVertexArray(renderer.vao);
     glyph__glBindBuffer(GL_ARRAY_BUFFER, renderer.vbo);
-    glyph__glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 24, NULL, GL_DYNAMIC_DRAW);
+    glyph__glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 73728, NULL, GL_DYNAMIC_DRAW);
     glyph__glEnableVertexAttribArray(0);
     glyph__glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
     glyph__glEnableVertexAttribArray(1);
     glyph__glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
     glyph__glBindBuffer(GL_ARRAY_BUFFER, 0);
     glyph__glBindVertexArray(0);
-    
+
     renderer.initialized = 1;
     return renderer;
 }
@@ -168,7 +185,7 @@ void glyph_renderer_update_projection(glyph_renderer_t* renderer, int width, int
 }
 
 void glyph_renderer_draw_text(glyph_renderer_t* renderer, const char* text, float x, float y, float scale,
-                              float r, float g, float b, int effects) {
+                               float r, float g, float b, int effects) {
     if (!renderer || !renderer->initialized) return;
 
     glyph__glUseProgram(renderer->shader);
@@ -178,13 +195,28 @@ void glyph_renderer_draw_text(glyph_renderer_t* renderer, const char* text, floa
     glyph__glUniform1i(glyph__glGetUniformLocation(renderer->shader, "textTexture"), 0);
     glyph__glUniform3f(glyph__glGetUniformLocation(renderer->shader, "textColor"), r, g, b);
     glyph__glUniform1i(glyph__glGetUniformLocation(renderer->shader, "effects"), effects);
-    
+
+    size_t text_len = strlen(text);
+    float* vertices = (float*)GLYPH_MALLOC(sizeof(float) * 24 * text_len * 3);
+    if (!vertices) return;
+    size_t vertex_count = 0;
+
     float current_x = x;
-    for (size_t i = 0; i < strlen(text); ++i) {
-        int codepoint = (unsigned char)text[i];
+    size_t i = 0;
+    while (i < text_len) {
+        int codepoint;
+        if (renderer->char_type == GLYPH_UTF8) {
+            codepoint = glyph_utf8_decode(text, &i);
+        } else {
+            codepoint = (unsigned char)text[i];
+            i++;
+        }
         glyph_atlas_char_t* ch = glyph_atlas_find_char(&renderer->atlas, codepoint);
+        if (!ch) {
+            ch = glyph_atlas_find_char(&renderer->atlas, '?');
+        }
         if (!ch || ch->width == 0) {
-            current_x += ch ? ch->advance * scale : 0;
+            current_x += ch ? ch->advance * scale : (renderer->atlas.pixel_height * 0.5f * scale);
             continue;
         }
 
@@ -198,7 +230,7 @@ void glyph_renderer_draw_text(glyph_renderer_t* renderer, const char* text, floa
         float tex_x2 = (float)(ch->x + ch->width) / renderer->atlas.image.width;
         float tex_y2 = (float)(ch->y + ch->height) / renderer->atlas.image.height;
 
-        float vertices[24] = {
+        float glyph_vertices[24] = {
             xpos,     ypos + h,   tex_x1, tex_y2,
             xpos,     ypos,       tex_x1, tex_y1,
             xpos + w, ypos,       tex_x2, tex_y1,
@@ -210,16 +242,13 @@ void glyph_renderer_draw_text(glyph_renderer_t* renderer, const char* text, floa
 
         if (effects & GLYPHGL_ITALIC) {
             float shear = 0.2f;
-            vertices[0] -= shear * h;  // top left x
-            vertices[12] -= shear * h; // top left x (second triangle)
-            vertices[20] -= shear * h; // top right x
+            glyph_vertices[0] -= shear * h;
+            glyph_vertices[12] -= shear * h;
+            glyph_vertices[20] -= shear * h;
         }
 
-        glyph__glBindBuffer(GL_ARRAY_BUFFER, renderer->vbo);
-        glyph__glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-        glyph__glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-        glDrawArrays(GL_TRIANGLES, 0, 6);
+        memcpy(vertices + vertex_count * 4, glyph_vertices, sizeof(glyph_vertices));
+        vertex_count += 6;
 
         if (effects & GLYPHGL_BOLD) {
             float bold_offset = 1.0f * scale;
@@ -235,15 +264,13 @@ void glyph_renderer_draw_text(glyph_renderer_t* renderer, const char* text, floa
 
             if (effects & GLYPHGL_ITALIC) {
                 float shear = 0.2f;
-                bold_vertices[0] -= shear * h;  // top left x
-                bold_vertices[12] -= shear * h; // top left x (second triangle)
-                bold_vertices[20] -= shear * h; // top right x
+                bold_vertices[0] -= shear * h;
+                bold_vertices[12] -= shear * h;
+                bold_vertices[20] -= shear * h;
             }
 
-            glyph__glBindBuffer(GL_ARRAY_BUFFER, renderer->vbo);
-            glyph__glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(bold_vertices), bold_vertices);
-            glyph__glBindBuffer(GL_ARRAY_BUFFER, 0);
-            glDrawArrays(GL_TRIANGLES, 0, 6);
+            memcpy(vertices + vertex_count * 4, bold_vertices, sizeof(bold_vertices));
+            vertex_count += 6;
         }
 
         if (effects & GLYPHGL_UNDERLINE) {
@@ -257,17 +284,49 @@ void glyph_renderer_draw_text(glyph_renderer_t* renderer, const char* text, floa
                 current_x + ch->advance * scale, underline_y,     0.0f, 0.0f,
                 current_x + ch->advance * scale, underline_y + 2, 0.0f, 0.0f
             };
-            glyph__glBindBuffer(GL_ARRAY_BUFFER, renderer->vbo);
-            glyph__glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(underline_vertices), underline_vertices);
-            glyph__glBindBuffer(GL_ARRAY_BUFFER, 0);
-            glDrawArrays(GL_TRIANGLES, 0, 6);
+            memcpy(vertices + vertex_count * 4, underline_vertices, sizeof(underline_vertices));
+            vertex_count += 6;
         }
 
         current_x += ch->advance * scale;
     }
-    
+
+    glyph__glBindBuffer(GL_ARRAY_BUFFER, renderer->vbo);
+    glyph__glBufferSubData(GL_ARRAY_BUFFER, 0, vertex_count * 4 * sizeof(float), vertices);
+    glyph__glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    glDrawArrays(GL_TRIANGLES, 0, vertex_count);
+
+    GLYPH_FREE(vertices);
+
     glyph__glBindVertexArray(0);
     glyph__glUseProgram(0);
+}
+
+int glyph_utf8_decode(const char* str, size_t* index) {
+    size_t i = *index;
+    unsigned char c = (unsigned char)str[i++];
+    if (c < 0x80) {
+        *index = i;
+        return c;
+    } else if ((c & 0xE0) == 0xC0) {
+        unsigned char c2 = (unsigned char)str[i++];
+        *index = i;
+        return ((c & 0x1F) << 6) | (c2 & 0x3F);
+    } else if ((c & 0xF0) == 0xE0) {
+        unsigned char c2 = (unsigned char)str[i++];
+        unsigned char c3 = (unsigned char)str[i++];
+        *index = i;
+        return ((c & 0x0F) << 12) | ((c2 & 0x3F) << 6) | (c3 & 0x3F);
+    } else if ((c & 0xF8) == 0xF0) {
+        unsigned char c2 = (unsigned char)str[i++];
+        unsigned char c3 = (unsigned char)str[i++];
+        unsigned char c4 = (unsigned char)str[i++];
+        *index = i;
+        return ((c & 0x07) << 18) | ((c2 & 0x3F) << 12) | ((c3 & 0x3F) << 6) | (c4 & 0x3F);
+    }
+    *index = i;
+    return 0xFFFD;
 }
 
 #endif

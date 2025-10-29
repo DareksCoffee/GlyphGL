@@ -31,6 +31,8 @@
 #include <string.h>
 #include <math.h>
 
+#include "glyph_util.h"
+
 typedef struct {
     unsigned char* data;
     int fontstart;
@@ -349,7 +351,7 @@ static void glyph_ttf__rasterize_shape(unsigned char* bitmap, int w, int h, glyp
         }
     }
     
-    free(accum);
+    GLYPH_FREE(accum);
 }
 
 unsigned char* glyph_ttf_get_glyph_bitmap(const glyph_font_t* font, int glyph_index, float scale_x, float scale_y, int* width, int* height, int* xoff, int* yoff) {
@@ -391,15 +393,15 @@ unsigned char* glyph_ttf_get_glyph_bitmap(const glyph_font_t* font, int glyph_in
         int lastEndPt = glyph_ttf__get16u(data, endPtsOfContours + (numberOfContours - 1) * 2);
         int n_points = lastEndPt + 1;
 
-        unsigned char* point_flags = (unsigned char*)malloc(n_points);
-        int* x_coords = (int*)malloc(n_points * sizeof(int));
-        int* y_coords = (int*)malloc(n_points * sizeof(int));
+        unsigned char* point_flags = (unsigned char*)GLYPH_MALLOC(n_points);
+        int* x_coords = (int*)GLYPH_MALLOC(n_points * sizeof(int));
+        int* y_coords = (int*)GLYPH_MALLOC(n_points * sizeof(int));
 
         if (!x_coords || !y_coords || !point_flags) {
-            free(x_coords);
-            free(y_coords);
-            free(point_flags);
-            free(bitmap);
+            GLYPH_FREE(x_coords);
+            GLYPH_FREE(y_coords);
+            GLYPH_FREE(point_flags);
+            GLYPH_FREE(bitmap);
             return NULL;
         }
 
@@ -444,16 +446,16 @@ unsigned char* glyph_ttf_get_glyph_bitmap(const glyph_font_t* font, int glyph_in
             y_coords[i] = y;
         }
 
-        glyph_point_t** contours = (glyph_point_t**)malloc(numberOfContours * sizeof(glyph_point_t*));
-        int* contour_sizes = (int*)malloc(numberOfContours * sizeof(int));
+        glyph_point_t** contours = (glyph_point_t**)GLYPH_MALLOC(numberOfContours * sizeof(glyph_point_t*));
+        int* contour_sizes = (int*)GLYPH_MALLOC(numberOfContours * sizeof(int));
         
         if (!contours || !contour_sizes) {
-            free(contours);
-            free(contour_sizes);
-            free(x_coords);
-            free(y_coords);
-            free(point_flags);
-            free(bitmap);
+            GLYPH_FREE(contours);
+            GLYPH_FREE(contour_sizes);
+            GLYPH_FREE(x_coords);
+            GLYPH_FREE(y_coords);
+            GLYPH_FREE(point_flags);
+            GLYPH_FREE(bitmap);
             return NULL;
         }
         
@@ -462,7 +464,7 @@ unsigned char* glyph_ttf_get_glyph_bitmap(const glyph_font_t* font, int glyph_in
             int end_pt = glyph_ttf__get16u(data, endPtsOfContours + c * 2);
             int contour_len = end_pt - start_pt + 1;
             
-            glyph_point_t* contour = (glyph_point_t*)malloc(contour_len * 3 * sizeof(glyph_point_t));
+            glyph_point_t* contour = (glyph_point_t*)GLYPH_MALLOC(contour_len * 3 * sizeof(glyph_point_t));
             if (!contour) {
                 contours[c] = NULL;
                 contour_sizes[c] = 0;
@@ -493,14 +495,14 @@ unsigned char* glyph_ttf_get_glyph_bitmap(const glyph_font_t* font, int glyph_in
         glyph_ttf__rasterize_shape(bitmap, w, h, contours, contour_sizes, numberOfContours);
         
         for (int c = 0; c < numberOfContours; ++c) {
-            free(contours[c]);
+            GLYPH_FREE(contours[c]);
         }
-        free(contours);
-        free(contour_sizes);
+        GLYPH_FREE(contours);
+        GLYPH_FREE(contour_sizes);
 
-        free(x_coords);
-        free(y_coords);
-        free(point_flags);
+        GLYPH_FREE(x_coords);
+        GLYPH_FREE(y_coords);
+        GLYPH_FREE(point_flags);
 
         *width = w;
         *height = h;
@@ -518,7 +520,7 @@ unsigned char* glyph_ttf_get_glyph_bitmap(const glyph_font_t* font, int glyph_in
 }
 
 void glyph_ttf_free_bitmap(unsigned char* bitmap) {
-    free(bitmap);
+    GLYPH_FREE(bitmap);
 }
 
 #endif
@@ -587,7 +589,7 @@ static int glyph_ttf_load_font_from_file(glyph_font_t* font, const char* filenam
     fseek(f, 0, SEEK_END);
     size_t size = ftell(f);
     fseek(f, 0, SEEK_SET);
-    unsigned char* data = (unsigned char*)malloc(size);
+    unsigned char* data = (unsigned char*)GLYPH_MALLOC(size);
     if (!data) {
         fclose(f);
         return 0;
@@ -595,11 +597,11 @@ static int glyph_ttf_load_font_from_file(glyph_font_t* font, const char* filenam
     fread(data, 1, size, f);
     fclose(f);
     int result = glyph_ttf_init(font, data, 0);
-    if (!result) free(data);
+    if (!result) GLYPH_FREE(data);
     return result;
 }
 
 static void glyph_ttf_free_font(glyph_font_t* font) {
-    if (font->data) free(font->data);
+    if (font->data) GLYPH_FREE(font->data);
     font->data = NULL;
 }

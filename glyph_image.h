@@ -25,6 +25,8 @@
 #ifndef __GLYPH_IMAGE_h
 #define __GLYPH_IMAGE_h
 
+#include "glyph_util.h"
+
 // Cross-platform includes
 #if defined(_WIN32) || defined(_WIN64)
     #include <windows.h>
@@ -65,13 +67,13 @@ static glyph_image_t glyph_image_create(unsigned int width, unsigned int height)
     glyph_image_t img;
     img.width = width;
     img.height = height;
-    img.data = (unsigned char*)malloc((size_t)width * height * 3);
+    img.data = (unsigned char*)GLYPH_MALLOC((size_t)width * height * 3);
     return img;
 }
 
 static void glyph_image_free(glyph_image_t* img) {
     if (!img) return;
-    free(img->data);
+    GLYPH_FREE(img->data);
     img->data = NULL;
 }
 
@@ -236,20 +238,20 @@ static int glyph_write_png(const char* filename, glyph_image_t* img) {
     fwrite("IHDR", 1, 4, f);
     fwrite(ihdr_data, 1, 13, f);
     {
-        unsigned char* tmp = (unsigned char*)malloc(4 + 13);
+        unsigned char* tmp = (unsigned char*)GLYPH_MALLOC(4 + 13);
         memcpy(tmp, "IHDR", 4);
         memcpy(tmp + 4, ihdr_data, 13);
         uint32_t crc = crc32(tmp, 4 + 13);
         write_u32_be(f, crc);
-        free(tmp);
+        GLYPH_FREE(tmp);
     }
 
     size_t raw_row_bytes = (size_t)img->width * 3 + 1;
     size_t raw_size = raw_row_bytes * img->height;
-    unsigned char* raw = (unsigned char*)malloc(raw_size);
+    unsigned char* raw = (unsigned char*)GLYPH_MALLOC(raw_size);
     if (!raw) { fclose(f); return -1; }
     int bpp = 3;
-    unsigned char* row_data = (unsigned char*)malloc((size_t)img->width * bpp);
+    unsigned char* row_data = (unsigned char*)GLYPH_MALLOC((size_t)img->width * bpp);
     for (unsigned int y = 0; y < img->height; ++y) {
         unsigned char* row_ptr = raw + y * raw_row_bytes;
         memcpy(row_data, &img->data[(y * img->width) * bpp], (size_t)img->width * bpp);
@@ -262,14 +264,14 @@ static int glyph_write_png(const char* filename, glyph_image_t* img) {
             }
         }
     }
-    free(row_data);
+    GLYPH_FREE(row_data);
 
     unsigned char zlib_header[2] = {0x78, 0x01};
 
     size_t max_blocks = (raw_size + 65534) / 65535;
     size_t comp_cap = 2 + raw_size + max_blocks * 5 + 4;
-    unsigned char* comp = (unsigned char*)malloc(comp_cap);
-    if (!comp) { free(raw); fclose(f); return -1; }
+    unsigned char* comp = (unsigned char*)GLYPH_MALLOC(comp_cap);
+    if (!comp) { GLYPH_FREE(raw); fclose(f); return -1; }
 
     size_t comp_pos = 0;
     comp[comp_pos++] = zlib_header[0];
@@ -299,21 +301,21 @@ static int glyph_write_png(const char* filename, glyph_image_t* img) {
     comp[comp_pos++] = (unsigned char)((a32 >> 8) & 0xFF);
     comp[comp_pos++] = (unsigned char)(a32 & 0xFF);
 
-    free(raw);
+    GLYPH_FREE(raw);
 
     uint32_t comp_len = (uint32_t)comp_pos;
     write_u32_be(f, comp_len);
     fwrite("IDAT", 1, 4, f);
     fwrite(comp, 1, comp_len, f);
     {
-        unsigned char* tmp = (unsigned char*)malloc(4 + comp_len);
+        unsigned char* tmp = (unsigned char*)GLYPH_MALLOC(4 + comp_len);
         memcpy(tmp, "IDAT", 4);
         memcpy(tmp + 4, comp, comp_len);
         uint32_t crc = crc32(tmp, 4 + comp_len);
         write_u32_be(f, crc);
-        free(tmp);
+        GLYPH_FREE(tmp);
     }
-    free(comp);
+    GLYPH_FREE(comp);
 
     write_u32_be(f, 0);
     fwrite("IEND", 1, 4, f);

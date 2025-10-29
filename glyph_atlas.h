@@ -26,7 +26,7 @@
 #define __GLYPH_ATLAS_H
 
 #include "glyph_image.h"
-
+#include "glyph_util.h"
 #if defined(_WIN32) || defined(_WIN64)
     #include <windows.h>
     #include <stdio.h>
@@ -49,6 +49,34 @@
     #include <string.h>
     #include <stdint.h>
     #include <math.h>
+#define GLYPH_UTF8           0x010
+#define GLYPH_ASCII          0x020
+
+static int glyph_atlas_utf8_decode(const char* str, size_t* index) {
+    size_t i = *index;
+    unsigned char c = (unsigned char)str[i++];
+    if (c < 0x80) {
+        *index = i;
+        return c;
+    } else if ((c & 0xE0) == 0xC0) {
+        unsigned char c2 = (unsigned char)str[i++];
+        *index = i;
+        return ((c & 0x1F) << 6) | (c2 & 0x3F);
+    } else if ((c & 0xF0) == 0xE0) {
+        unsigned char c2 = (unsigned char)str[i++];
+        unsigned char c3 = (unsigned char)str[i++];
+        *index = i;
+        return ((c & 0x0F) << 12) | ((c2 & 0x3F) << 6) | (c3 & 0x3F);
+    } else if ((c & 0xF8) == 0xF0) {
+        unsigned char c2 = (unsigned char)str[i++];
+        unsigned char c3 = (unsigned char)str[i++];
+        unsigned char c4 = (unsigned char)str[i++];
+        *index = i;
+        return ((c & 0x07) << 18) | ((c2 & 0x3F) << 12) | ((c3 & 0x3F) << 6) | (c4 & 0x3F);
+    }
+    *index = i;
+    return 0xFFFD;
+}
 #endif
 
 typedef struct {
@@ -77,7 +105,7 @@ static int glyph_atlas__next_pow2(int v) {
     return v;
 }
 
-glyph_atlas_t glyph_atlas_create(const char* font_path, float pixel_height, const char* charset) {
+glyph_atlas_t glyph_atlas_create(const char* font_path, float pixel_height, const char* charset, uint32_t char_type) {
     glyph_atlas_t atlas = {0};
     glyph_font_t font;
     
@@ -90,37 +118,59 @@ glyph_atlas_t glyph_atlas_create(const char* font_path, float pixel_height, cons
     atlas.pixel_height = pixel_height;
     
     if (!charset) {
-        charset = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
+        if (char_type == GLYPH_UTF8) {
+            charset = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
+        } else {
+            charset = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
+        }
     }
-    
-    int charset_len = strlen(charset);
+
+    int charset_len;
+    if (char_type == GLYPH_UTF8) {
+        charset_len = 0;
+        size_t idx = 0;
+        while (idx < strlen(charset)) {
+            glyph_atlas_utf8_decode(charset, &idx);
+            charset_len++;
+        }
+    } else {
+        charset_len = strlen(charset);
+    }
+
     atlas.num_chars = charset_len;
-    atlas.chars = (glyph_atlas_char_t*)malloc(charset_len * sizeof(glyph_atlas_char_t));
+    atlas.chars = (glyph_atlas_char_t*)GLYPH_MALLOC(charset_len * sizeof(glyph_atlas_char_t));
     if (!atlas.chars) {
         glyph_ttf_free_font(&font);
         return atlas;
     }
-    
+
     typedef struct {
         unsigned char* bitmap;
         int width, height;
         int xoff, yoff;
         int advance;
+        int is_default;
     } temp_glyph_t;
-    
-    temp_glyph_t* temp_glyphs = (temp_glyph_t*)malloc(charset_len * sizeof(temp_glyph_t));
+
+    temp_glyph_t* temp_glyphs = (temp_glyph_t*)GLYPH_MALLOC(charset_len * sizeof(temp_glyph_t));
     if (!temp_glyphs) {
-        free(atlas.chars);
+        GLYPH_FREE(atlas.chars);
         atlas.chars = NULL;
         glyph_ttf_free_font(&font);
         return atlas;
     }
-    
+
     int total_width = 0;
     int max_height = 0;
-    
+
+    size_t charset_idx = 0;
     for (int i = 0; i < charset_len; i++) {
-        int codepoint = (unsigned char)charset[i];
+        int codepoint;
+        if (char_type == GLYPH_UTF8) {
+            codepoint = glyph_atlas_utf8_decode(charset, &charset_idx);
+        } else {
+            codepoint = (unsigned char)charset[i];
+        }
         int glyph_idx = glyph_ttf_find_glyph_index(&font, codepoint);
         
         if (glyph_idx == 0 && codepoint != ' ') {
@@ -130,6 +180,7 @@ glyph_atlas_t glyph_atlas_create(const char* font_path, float pixel_height, cons
             temp_glyphs[i].xoff = 0;
             temp_glyphs[i].yoff = 0;
             temp_glyphs[i].advance = (int)(pixel_height * 0.5f);
+            temp_glyphs[i].is_default = 0;
             atlas.chars[i].codepoint = codepoint;
             continue;
         }
@@ -144,7 +195,8 @@ glyph_atlas_t glyph_atlas_create(const char* font_path, float pixel_height, cons
         temp_glyphs[i].xoff = xoff;
         temp_glyphs[i].yoff = yoff;
         temp_glyphs[i].advance = (int)(glyph_ttf_get_glyph_advance(&font, glyph_idx) * scale);
-        
+        temp_glyphs[i].is_default = 0;
+
         atlas.chars[i].codepoint = codepoint;
         atlas.chars[i].advance = temp_glyphs[i].advance;
         
@@ -157,6 +209,9 @@ glyph_atlas_t glyph_atlas_create(const char* font_path, float pixel_height, cons
     int padding = 4;
     int atlas_width = glyph_atlas__next_pow2((int)sqrtf(total_width * max_height) + 256);
     int atlas_height = atlas_width;
+    // Ensure minimum size to fit all glyphs
+    if (atlas_width < 2048) atlas_width = 2048;
+    if (atlas_height < 2048) atlas_height = 2048;
     
     atlas.image = glyph_image_create(atlas_width, atlas_height);
     memset(atlas.image.data, 0, atlas_width * atlas_height * 3);
@@ -164,15 +219,15 @@ glyph_atlas_t glyph_atlas_create(const char* font_path, float pixel_height, cons
     int pen_x = padding;
     int pen_y = padding;
     int row_height = 0;
-    
+
     typedef struct {
         int index;
         int yoff;
     } row_glyph_t;
-    
-    row_glyph_t* current_row = (row_glyph_t*)malloc(charset_len * sizeof(row_glyph_t));
+
+    row_glyph_t* current_row = (row_glyph_t*)GLYPH_MALLOC(charset_len * sizeof(row_glyph_t));
     int row_count = 0;
-    
+
     for (int i = 0; i < charset_len; i++) {
         if (!temp_glyphs[i].bitmap || temp_glyphs[i].width == 0) {
             atlas.chars[i].x = 0;
@@ -219,8 +274,18 @@ glyph_atlas_t glyph_atlas_create(const char* font_path, float pixel_height, cons
         }
         
         if (pen_y + temp_glyphs[i].height + padding > atlas_height) {
-            printf("Warning: Atlas too small, some glyphs may be cut off\n");
-            break;
+            printf("Warning: Atlas too small, increasing size for glyph %d\n", i);
+            atlas_width *= 2;
+            atlas_height *= 2;
+            glyph_image_free(&atlas.image);
+            atlas.image = glyph_image_create(atlas_width, atlas_height);
+            memset(atlas.image.data, 0, atlas_width * atlas_height * 3);
+            pen_x = padding;
+            pen_y = padding;
+            row_height = 0;
+            row_count = 0;
+            i = -1;
+            continue;
         }
         
         current_row[row_count].index = i;
@@ -269,14 +334,18 @@ glyph_atlas_t glyph_atlas_create(const char* font_path, float pixel_height, cons
         }
     }
     
-    free(current_row);
+    GLYPH_FREE(current_row);
     
     for (int i = 0; i < charset_len; i++) {
         if (temp_glyphs[i].bitmap) {
-            glyph_ttf_free_bitmap(temp_glyphs[i].bitmap);
+            if (temp_glyphs[i].is_default) {
+                GLYPH_FREE(temp_glyphs[i].bitmap);
+            } else {
+                glyph_ttf_free_bitmap(temp_glyphs[i].bitmap);
+            }
         }
     }
-    free(temp_glyphs);
+    GLYPH_FREE(temp_glyphs);
     glyph_ttf_free_font(&font);
     
     return atlas;
@@ -285,7 +354,7 @@ glyph_atlas_t glyph_atlas_create(const char* font_path, float pixel_height, cons
 void glyph_atlas_free(glyph_atlas_t* atlas) {
     if (!atlas) return;
     if (atlas->chars) {
-        free(atlas->chars);
+        GLYPH_FREE(atlas->chars);
         atlas->chars = NULL;
     }
     glyph_image_free(&atlas->image);
