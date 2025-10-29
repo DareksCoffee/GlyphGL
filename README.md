@@ -31,40 +31,40 @@ git clone https://github.com/DareksCoffee/GlyphGL.git
 
 ```c
 #include <GLFW/glfw3.h>
-#include "glyph.h"
+#include <glyph.h>
 
-int main() {
-    // Initialize GLFW and create OpenGL context
+int main()
+{
+    // Initialize GLFW
     glfwInit();
+    // Set the opengl context to be version 3.3+
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    GLFWwindow* window = glfwCreateWindow(800, 600, "GlyphGL Demo", NULL, NULL);
+    // Creating GLFW window
+    GLFWwindow* window = glfwCreateWindow(
+        800, 800, "GLFW Glyph Example", NULL, NULL
+    );
     glfwMakeContextCurrent(window);
+    // Setting up Glyph renderer
+    glyph_renderer_t renderer = glyph_renderer_create("font.ttf", 64.0f, NULL, GLYPH_UTF8);
+    // Setting up the glyph renderer projection 
+    glyph_renderer_set_projection(&renderer, 800, 800);
 
-    // Create renderer with Arial font at 64px height
-    glyph_renderer_t renderer = glyph_renderer_create("font.ttf", 64.0f, NULL);
-
-    // Set up projection matrix for 800x600 window
-    glyph_renderer_set_projection(&renderer, 800, 600);
-
-    // Enable alpha blending
+    // Enabling alphha blend
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    while (!glfwWindowShouldClose(window)) {
+    while(!glfwWindowShouldClose(window))
+    {
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        // Draw colored text
+        // Rendering the text "Hello, GlyphGL!"
         glyph_renderer_draw_text(&renderer, "Hello, GlyphGL!", 50.0f, 300.0f, 1.0f, 1.0f, 1.0f, 1.0f, GLYPH_NONE);
-
-        // Draw styled text
-        glyph_renderer_draw_text(&renderer, "Bold Text", 50.0f, 200.0f, 0.8f, 1.0f, 0.5f, 0.0f, GLYPHGL_BOLD);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
-
     glyph_renderer_free(&renderer);
     glfwDestroyWindow(window);
     glfwTerminate();
