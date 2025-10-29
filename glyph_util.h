@@ -14,4 +14,10 @@
 #define GLYPH_REALLOC realloc
 #endif
 
+#ifdef GLYPHGL_DEBUG
+#define GLYPH_LOG(...) printf(__VA_ARGS__)
+#else
+#define GLYPH_LOG(...)
+#endif
+
 #endif

@@ -49,8 +49,7 @@
     #include <string.h>
     #include <stdint.h>
     #include <math.h>
-#define GLYPH_UTF8           0x010
-#define GLYPH_ASCII          0x020
+#endif
 
 static int glyph_atlas_utf8_decode(const char* str, size_t* index) {
     size_t i = *index;
@@ -77,7 +76,6 @@ static int glyph_atlas_utf8_decode(const char* str, size_t* index) {
     *index = i;
     return 0xFFFD;
 }
-#endif
 
 typedef struct {
     int codepoint;
@@ -110,7 +108,7 @@ glyph_atlas_t glyph_atlas_create(const char* font_path, float pixel_height, cons
     glyph_font_t font;
     
     if (!glyph_ttf_load_font_from_file(&font, font_path)) {
-        printf("Failed to load font: %s\n", font_path);
+        GLYPH_LOG("Failed to load font: %s\n", font_path);
         return atlas;
     }
     
@@ -274,7 +272,7 @@ glyph_atlas_t glyph_atlas_create(const char* font_path, float pixel_height, cons
         }
         
         if (pen_y + temp_glyphs[i].height + padding > atlas_height) {
-            printf("Warning: Atlas too small, increasing size for glyph %d\n", i);
+            GLYPH_LOG("Warning: Atlas too small, increasing size for glyph %d\n", i);
             atlas_width *= 2;
             atlas_height *= 2;
             glyph_image_free(&atlas.image);
@@ -409,16 +407,16 @@ glyph_atlas_char_t* glyph_atlas_find_char(glyph_atlas_t* atlas, int codepoint) {
 void glyph_atlas_print_info(glyph_atlas_t* atlas) {
     if (!atlas) return;
     
-    printf("Font Atlas Info:\n");
-    printf("  Atlas Size: %ux%u\n", atlas->image.width, atlas->image.height);
-    printf("  Pixel Height: %.2f\n", atlas->pixel_height);
-    printf("  Characters: %d\n", atlas->num_chars);
-    printf("\nCharacter Details:\n");
+    GLYPH_LOG("Font Atlas Info:\n");
+    GLYPH_LOG("  Atlas Size: %ux%u\n", atlas->image.width, atlas->image.height);
+    GLYPH_LOG("  Pixel Height: %.2f\n", atlas->pixel_height);
+    GLYPH_LOG("  Characters: %d\n", atlas->num_chars);
+    GLYPH_LOG("\nCharacter Details:\n");
     
     for (int i = 0; i < atlas->num_chars; i++) {
         glyph_atlas_char_t* c = &atlas->chars[i];
         char ch = (c->codepoint >= 32 && c->codepoint < 127) ? c->codepoint : '?';
-        printf("  '%c' (U+%04X): pos=(%d,%d) size=(%dx%d) offset=(%d,%d) advance=%d\n",
+        GLYPH_LOG("  '%c' (U+%04X): pos=(%d,%d) size=(%dx%d) offset=(%d,%d) advance=%d\n",
                ch, c->codepoint, c->x, c->y, c->width, c->height, 
                c->xoff, c->yoff, c->advance);
     }
