@@ -10,5 +10,8 @@
 #define GLYPH_FREE free
 #endif
 
+#ifndef GLYPH_REALLOC
+#define GLYPH_REALLOC realloc
+#endif
 
 #endif
