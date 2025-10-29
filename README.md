@@ -20,9 +20,12 @@ A lightweight, header-only text rendering library for OpenGL applications. Glyph
 
 ## Installation
 
-1. Download the header files: `glyph.h`, `glyph_truetype.h`, `glyph_atlas.h`, `glyph_gl.h`, `glyph_image.h`
-2. Include `glyph.h` in your project
-3. Link against OpenGL and any required system libraries
+1. Clone this repo:
+```
+git clone https://github.com/DareksCoffee/GlyphGL.git
+```
+3. Include `glyph.h` in your project
+4. Link against OpenGL and any required system libraries
 
 ## Usage Example
 
