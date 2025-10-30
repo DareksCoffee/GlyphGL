@@ -292,14 +292,29 @@ static const char* glyph__fragment_shader_source =
 "out vec4 FragColor;\n"
 "uniform sampler2D textTexture;\n"
 "uniform vec3 textColor;\n"
+#ifndef GLYPHGL_MINIMAL
 "uniform int effects;\n"
+#endif
 "void main() {\n"
-"    float alpha;\n"
+"    float sample;\n"
+#ifndef GLYPHGL_MINIMAL
 "    if (TexCoord.x == -1.0 && TexCoord.y == -1.0 && (effects & 4) != 0) {\n"
-"        alpha = 1.0;\n"
+"        sample = 1.0;\n"
 "    } else {\n"
-"        alpha = texture(textTexture, TexCoord).r;\n"
+"        sample = texture(textTexture, TexCoord).r;\n"
 "    }\n"
+"    float alpha;\n"
+"    if ((effects & 8) != 0) {\n"
+"        float dist = sample * 2.0 - 1.0;\n"
+"        alpha = dist < 0.0 ? 1.0 : 0.0;\n"
+"    } else {\n"
+"        alpha = sample;\n"
+"    }\n"
+#else
+"    sample = texture(textTexture, TexCoord).r;\n"
+"    float dist = sample * 2.0 - 1.0;\n"
+"    float alpha = dist < 0.0 ? 1.0 : 0.0;\n"
+#endif
 "    FragColor = vec4(textColor, alpha);\n"
 "}\n";
 

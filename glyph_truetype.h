@@ -58,6 +58,7 @@ int glyph_ttf_find_glyph_index(const glyph_font_t* font, int codepoint);
 void glyph_ttf_get_glyph_bbox(const glyph_font_t* font, int glyph_index, glyph_bbox_t* bbox);
 unsigned char* glyph_ttf_get_glyph_bitmap(const glyph_font_t* font, int glyph_index, float scale_x, float scale_y, int* width, int* height, int* xoff, int* yoff);
 void glyph_ttf_free_bitmap(unsigned char* bitmap);
+unsigned char* glyph_ttf_get_glyph_sdf_bitmap(unsigned char* bitmap, int w, int h, int spread);
 float glyph_ttf_scale_for_pixel_height(const glyph_font_t* font, float pixels);
 int glyph_ttf_get_glyph_advance(const glyph_font_t* font, int glyph_index);
 
@@ -615,4 +616,66 @@ static int glyph_ttf_load_font_from_file(glyph_font_t* font, const char* filenam
 static void glyph_ttf_free_font(glyph_font_t* font) {
     if (font->data) GLYPH_FREE(font->data);
     font->data = NULL;
+}
+
+unsigned char* glyph_ttf_get_glyph_sdf_bitmap(unsigned char* bitmap, int w, int h, int spread) {
+    unsigned char* mask = (unsigned char*)GLYPH_MALLOC(w * h);
+    for(int i = 0; i < w * h; i++) {
+        mask[i] = bitmap[i] > 127 ? 1 : 0;
+    }
+    float* dt1 = (float*)GLYPH_MALLOC(w * h * sizeof(float));
+    for(int i = 0; i < w * h; i++) dt1[i] = mask[i] ? 0.0f : 1e9f;
+    for(int y = 0; y < h; y++) {
+        for(int x = 0; x < w; x++) {
+            int idx = y * w + x;
+            if (x > 0) dt1[idx] = fminf(dt1[idx], dt1[idx-1] + 1.0f);
+        }
+        for(int x = w-1; x >= 0; x--) {
+            int idx = y * w + x;
+            if (x < w-1) dt1[idx] = fminf(dt1[idx], dt1[idx+1] + 1.0f);
+        }
+    }
+    for(int x = 0; x < w; x++) {
+        for(int y = 0; y < h; y++) {
+            int idx = y * w + x;
+            if (y > 0) dt1[idx] = fminf(dt1[idx], dt1[(y-1)*w + x] + 1.0f);
+        }
+        for(int y = h-1; y >= 0; y--) {
+            int idx = y * w + x;
+            if (y < h-1) dt1[idx] = fminf(dt1[idx], dt1[(y+1)*w + x] + 1.0f);
+        }
+    }
+    float* dt0 = (float*)GLYPH_MALLOC(w * h * sizeof(float));
+    for(int i = 0; i < w * h; i++) dt0[i] = mask[i] ? 1e9f : 0.0f;
+    for(int y = 0; y < h; y++) {
+        for(int x = 0; x < w; x++) {
+            int idx = y * w + x;
+            if (x > 0) dt0[idx] = fminf(dt0[idx], dt0[idx-1] + 1.0f);
+        }
+        for(int x = w-1; x >= 0; x--) {
+            int idx = y * w + x;
+            if (x < w-1) dt0[idx] = fminf(dt0[idx], dt0[idx+1] + 1.0f);
+        }
+    }
+    for(int x = 0; x < w; x++) {
+        for(int y = 0; y < h; y++) {
+            int idx = y * w + x;
+            if (y > 0) dt0[idx] = fminf(dt0[idx], dt0[(y-1)*w + x] + 1.0f);
+        }
+        for(int y = h-1; y >= 0; y--) {
+            int idx = y * w + x;
+            if (y < h-1) dt0[idx] = fminf(dt0[idx], dt0[(y+1)*w + x] + 1.0f);
+        }
+    }
+    unsigned char* sdf = (unsigned char*)GLYPH_MALLOC(w * h);
+    for(int i = 0; i < w * h; i++) {
+        float dist = mask[i] ? -dt0[i] : dt1[i];
+        if (dist < -spread) dist = -spread;
+        if (dist > spread) dist = spread;
+        sdf[i] = (unsigned char)((dist / spread + 1.0f) * 0.5f * 255.0f);
+    }
+    GLYPH_FREE(mask);
+    GLYPH_FREE(dt1);
+    GLYPH_FREE(dt0);
+    return sdf;
 }

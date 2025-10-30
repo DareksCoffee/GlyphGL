@@ -103,7 +103,7 @@ static int glyph_atlas__next_pow2(int v) {
     return v;
 }
 
-glyph_atlas_t glyph_atlas_create(const char* font_path, float pixel_height, const char* charset, uint32_t char_type) {
+glyph_atlas_t glyph_atlas_create(const char* font_path, float pixel_height, const char* charset, uint32_t char_type, int use_sdf) {
     glyph_atlas_t atlas = {0};
     glyph_font_t font;
     
@@ -185,8 +185,14 @@ glyph_atlas_t glyph_atlas_create(const char* font_path, float pixel_height, cons
         
         int width, height, xoff, yoff;
         unsigned char* bitmap = glyph_ttf_get_glyph_bitmap(&font, glyph_idx, scale, scale,
-                                                            &width, &height, &xoff, &yoff);
-        
+                                                             &width, &height, &xoff, &yoff);
+
+        if (use_sdf) {
+            unsigned char* sdf = glyph_ttf_get_glyph_sdf_bitmap(bitmap, width, height, 4);
+            glyph_ttf_free_bitmap(bitmap);
+            bitmap = sdf;
+            temp_glyphs[i].is_default = 1;
+        }
         temp_glyphs[i].bitmap = bitmap;
         temp_glyphs[i].width = width;
         temp_glyphs[i].height = height;
@@ -207,9 +213,9 @@ glyph_atlas_t glyph_atlas_create(const char* font_path, float pixel_height, cons
     int padding = 4;
     int atlas_width = glyph_atlas__next_pow2((int)sqrtf(total_width * max_height) + 256);
     int atlas_height = atlas_width;
-    // Ensure minimum size to fit all glyphs
-    if (atlas_width < 2048) atlas_width = 2048;
-    if (atlas_height < 2048) atlas_height = 2048;
+    // Ensure minimum size to fit all glyphs, but respect configurable limits
+    if (atlas_width < GLYPHGL_ATLAS_WIDTH) atlas_width = GLYPHGL_ATLAS_WIDTH;
+    if (atlas_height < GLYPHGL_ATLAS_HEIGHT) atlas_height = GLYPHGL_ATLAS_HEIGHT;
     
     atlas.image = glyph_image_create(atlas_width, atlas_height);
     memset(atlas.image.data, 0, atlas_width * atlas_height * 3);

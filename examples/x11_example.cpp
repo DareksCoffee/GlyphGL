@@ -36,7 +36,7 @@ int main()
     GLXContext context = glXCreateContext(display, vi, NULL, GL_TRUE);
     glXMakeCurrent(display, window, context);
 
-    glyph_renderer_t renderer = glyph_renderer_create("font.ttf", 64.0f, NULL, GLYPH_UTF8);
+    glyph_renderer_t renderer = glyph_renderer_create("font.ttf", 64.0f, NULL, GLYPH_UTF8, NULL, 0);
     glyph_renderer_set_projection(&renderer, 800, 800);
 
     glEnable(GL_BLEND);
