@@ -21,7 +21,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
             HGLRC hglrc = wglCreateContext(hdc);
             wglMakeCurrent(hdc, hglrc);
 
-            renderer = glyph_renderer_create("font.ttf", 64.0f, NULL, GLYPH_UTF8);
+            renderer = glyph_renderer_create("font.ttf", 64.0f, NULL, GLYPH_UTF8, NULL, 0);
             glyph_renderer_set_projection(&renderer, 800, 800);
 
             glEnable(GL_BLEND);

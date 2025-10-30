@@ -49,22 +49,42 @@
  * | - Added 'GLYPH_LOG''
  * | - Created 'demos' and 'examples' folders
  * | - Added 'glyph_effect.h' that allows custom shader creation and includes many built in shaders
+ * v1.0.6 | 2025-10-31
+ * | - Added 'GLYPHGL_MINIMAL' compile-time flag to disable heavy features like effects
+ * | - Implemented minimal shader path (no effects, luminance-based alpha) behind compile-time flag
+ * | - Deferred large allocations (atlas channel copy) in minimal mode for reduced memory footprint
+ * | - Exposed atlas/vertex-buffer sizes as configurable parameters (GLYPHGL_ATLAS_WIDTH, GLYPHGL_ATLAS_HEIGHT, GLYPHGL_VERTEX_BUFFER_SIZE)
+ * | - Apps can now pick smaller defaults for memory-constrained environments
  * ========================================================
  */
 
 #ifndef __GLYPH_H
 #define __GLYPH_H
 
+#ifndef GLYPHGL_ATLAS_WIDTH
+#define GLYPHGL_ATLAS_WIDTH 2048
+#endif
+#ifndef GLYPHGL_ATLAS_HEIGHT
+#define GLYPHGL_ATLAS_HEIGHT 2048
+#endif
+#ifndef GLYPHGL_VERTEX_BUFFER_SIZE
+#define GLYPHGL_VERTEX_BUFFER_SIZE 73728
+#endif
+
+
 #include <stdlib.h>
 #include "glyph_truetype.h"
 #include "glyph_image.h"
 #include "glyph_gl.h"
 #include "glyph_util.h"
+#ifndef GLYPHGL_MINIMAL
 #include "glyph_effect.h"
+#endif
 
 #define GLYPHGL_BOLD        (1 << 0)
 #define GLYPHGL_ITALIC      (1 << 1)
 #define GLYPHGL_UNDERLINE   (1 << 2)
+#define GLYPHGL_SDF         (1 << 3)
 
 
 #define GLYPH_NONE           0
@@ -93,15 +113,19 @@ typedef struct {
     size_t vertex_buffer_size;
     int initialized;
     uint32_t char_type;
+#ifndef GLYPHGL_MINIMAL
     glyph_effect_t effect;
+#endif
 } glyph_renderer_t;
 
 
-glyph_renderer_t glyph_renderer_create(const char* font_path, float pixel_height, const char* charset, uint32_t char_type, glyph_effect_t* effect) {
+glyph_renderer_t glyph_renderer_create(const char* font_path, float pixel_height, const char* charset, uint32_t char_type, void* effect, int use_sdf) {
+#ifndef GLYPHGL_MINIMAL
     glyph_effect_t default_effect = {(glyph_effect_type_t)GLYPH_NONE, NULL, NULL};
     if (effect == NULL) {
         effect = &default_effect;
     }
+#endif
     glyph_renderer_t renderer = {0};
 
     if (!glyph_gl_load_functions()) {
@@ -112,8 +136,10 @@ glyph_renderer_t glyph_renderer_create(const char* font_path, float pixel_height
     }
 
     renderer.char_type = char_type;
-    renderer.effect = *effect;
-    renderer.atlas = glyph_atlas_create(font_path, pixel_height, charset, char_type);
+#ifndef GLYPHGL_MINIMAL
+    renderer.effect = *(glyph_effect_t*)effect;
+#endif
+    renderer.atlas = glyph_atlas_create(font_path, pixel_height, charset, char_type, use_sdf);
     if (!renderer.atlas.chars || !renderer.atlas.image.data) {
         #ifdef GLYPHGL_DEBUG
         GLYPH_LOG("Failed to create font atlas\n");
@@ -121,6 +147,8 @@ glyph_renderer_t glyph_renderer_create(const char* font_path, float pixel_height
         return renderer;
     }
 
+    // Defer atlas channel copy for minimal builds - upload directly from RGB data
+#ifndef GLYPHGL_MINIMAL
     unsigned char* red_channel = (unsigned char*)GLYPH_MALLOC(renderer.atlas.image.width * renderer.atlas.image.height);
     if (!red_channel) {
         glyph_atlas_free(&renderer.atlas);
@@ -142,12 +170,28 @@ glyph_renderer_t glyph_renderer_create(const char* font_path, float pixel_height
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     GLYPH_FREE(red_channel);
+#else
+    // Minimal mode: upload RGB texture directly (no channel extraction)
+    glGenTextures(1, &renderer.texture);
+    glBindTexture(GL_TEXTURE_2D, renderer.texture);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, renderer.atlas.image.width, renderer.atlas.image.height,
+                  0, GL_RGB, GL_UNSIGNED_BYTE, renderer.atlas.image.data);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+#endif
 
+#ifndef GLYPHGL_MINIMAL
     if (renderer.effect.type == GLYPH_NONE) {
         renderer.shader = glyph__create_program(glyph__vertex_shader_source, glyph__fragment_shader_source);
     } else {
         renderer.shader = glyph__create_program(renderer.effect.vertex_shader, renderer.effect.fragment_shader);
     }
+#else
+    renderer.shader = glyph__create_program(glyph__vertex_shader_source, glyph__fragment_shader_source);
+#endif
     if (!renderer.shader) {
         glDeleteTextures(1, &renderer.texture);
         glyph_atlas_free(&renderer.atlas);
@@ -158,7 +202,7 @@ glyph_renderer_t glyph_renderer_create(const char* font_path, float pixel_height
     glyph__glGenBuffers(1, &renderer.vbo);
     glyph__glBindVertexArray(renderer.vao);
     glyph__glBindBuffer(GL_ARRAY_BUFFER, renderer.vbo);
-    glyph__glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 73728, NULL, GL_DYNAMIC_DRAW);
+    glyph__glBufferData(GL_ARRAY_BUFFER, sizeof(float) * GLYPHGL_VERTEX_BUFFER_SIZE, NULL, GL_DYNAMIC_DRAW);
     glyph__glEnableVertexAttribArray(0);
     glyph__glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
     glyph__glEnableVertexAttribArray(1);
@@ -166,7 +210,7 @@ glyph_renderer_t glyph_renderer_create(const char* font_path, float pixel_height
     glyph__glBindBuffer(GL_ARRAY_BUFFER, 0);
     glyph__glBindVertexArray(0);
 
-    renderer.vertex_buffer_size = 73728 * 4; // Initial size for vertices (float * 4 per vertex)
+    renderer.vertex_buffer_size = GLYPHGL_VERTEX_BUFFER_SIZE * 4; // Initial size for vertices (float * 4 per vertex)
     renderer.vertex_buffer = (float*)GLYPH_MALLOC(sizeof(float) * renderer.vertex_buffer_size);
     if (!renderer.vertex_buffer) {
         glyph__glDeleteVertexArrays(1, &renderer.vao);
@@ -234,7 +278,9 @@ void glyph_renderer_draw_text(glyph_renderer_t* renderer, const char* text, floa
     glBindTexture(GL_TEXTURE_2D, renderer->texture);
     glyph__glUniform1i(glyph__glGetUniformLocation(renderer->shader, "textTexture"), 0);
     glyph__glUniform3f(glyph__glGetUniformLocation(renderer->shader, "textColor"), r, g, b);
+#ifndef GLYPHGL_MINIMAL
     glyph__glUniform1i(glyph__glGetUniformLocation(renderer->shader, "effects"), effects);
+#endif
 
     size_t text_len = strlen(text);
     size_t required_size = sizeof(float) * 24 * text_len * 3; // Estimate based on max effects (normal + bold + underline)
@@ -287,16 +333,19 @@ void glyph_renderer_draw_text(glyph_renderer_t* renderer, const char* text, floa
             xpos + w, ypos + h,   tex_x2, tex_y2
         };
 
+#ifndef GLYPHGL_MINIMAL
         if (effects & GLYPHGL_ITALIC) {
             float shear = 0.2f;
             glyph_vertices[0] -= shear * h;
             glyph_vertices[12] -= shear * h;
             glyph_vertices[20] -= shear * h;
         }
+#endif
 
         memcpy(vertices + vertex_count * 4, glyph_vertices, sizeof(glyph_vertices));
         vertex_count += 6;
 
+#ifndef GLYPHGL_MINIMAL
         if (effects & GLYPHGL_BOLD) {
             float bold_offset = 1.0f * scale;
             float bold_vertices[24] = {
@@ -334,6 +383,7 @@ void glyph_renderer_draw_text(glyph_renderer_t* renderer, const char* text, floa
             memcpy(vertices + vertex_count * 4, underline_vertices, sizeof(underline_vertices));
             vertex_count += 6;
         }
+#endif
 
         current_x += ch->advance * scale;
     }
@@ -388,3 +438,4 @@ int glyph_utf8_decode(const char* str, size_t* index) {
 }
 
 #endif
+
