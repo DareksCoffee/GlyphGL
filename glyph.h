@@ -93,11 +93,6 @@
 #define GLYPHGL_UNDERLINE   (1 << 2)
 #define GLYPHGL_SDF         (1 << 3)
 
-
-#define GLYPH_NONE           0
-#define GLYPH_UTF8           0x010
-#define GLYPH_ASCII          0x020
-
 #include "glyph_atlas.h"
 
 
