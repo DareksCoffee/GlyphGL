@@ -524,8 +524,6 @@ static inline void glyph_ttf_free_bitmap(unsigned char* bitmap) {
     GLYPH_FREE(bitmap);
 }
 
-#endif
-
 #include "glyph_image.h"
 
 static void glyph_ttf_debug_glyph(const glyph_font_t* font, int glyph_index) {
@@ -679,3 +677,5 @@ static inline unsigned char* glyph_ttf_get_glyph_sdf_bitmap(unsigned char* bitma
     GLYPH_FREE(dt0);
     return sdf;
 }
+
+#endif

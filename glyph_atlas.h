@@ -27,6 +27,16 @@
 
 #include "glyph_image.h"
 #include "glyph_util.h"
+#include "glyph_truetype.h"
+
+
+#define GLYPH_NONE           0
+#define GLYPH_UTF8           0x010
+#define GLYPH_ASCII          0x020
+
+#define GLYPHGL_ATLAS_WIDTH 2048
+#define GLYPHGL_ATLAS_HEIGHT 2048
+
 #if defined(_WIN32) || defined(_WIN64)
     #include <windows.h>
     #include <stdio.h>
@@ -51,12 +61,6 @@
     #include <math.h>
 #endif
 
-#define GLYPH_NONE           0
-#define GLYPH_UTF8           0x010
-#define GLYPH_ASCII          0x020
-
-#define GLYPHGL_ATLAS_WIDTH 2048
-#define GLYPHGL_ATLAS_HEIGHT 2048
 static int glyph_atlas_utf8_decode(const char* str, size_t* index) {
     size_t i = *index;
     unsigned char c = (unsigned char)str[i++];
