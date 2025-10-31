@@ -44,6 +44,8 @@
 #include <string.h>
 #include <stddef.h>
 
+#include "glyph_util.h"
+
 #ifndef GLYPH_NO_GL_LOADER
 
 typedef char GLchar;
