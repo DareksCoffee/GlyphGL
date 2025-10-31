@@ -103,7 +103,7 @@ static int glyph_atlas__next_pow2(int v) {
     return v;
 }
 
-glyph_atlas_t glyph_atlas_create(const char* font_path, float pixel_height, const char* charset, uint32_t char_type, int use_sdf) {
+static inline glyph_atlas_t glyph_atlas_create(const char* font_path, float pixel_height, const char* charset, uint32_t char_type, int use_sdf) {
     glyph_atlas_t atlas = {0};
     glyph_font_t font;
     
@@ -170,7 +170,7 @@ glyph_atlas_t glyph_atlas_create(const char* font_path, float pixel_height, cons
             codepoint = (unsigned char)charset[i];
         }
         int glyph_idx = glyph_ttf_find_glyph_index(&font, codepoint);
-        
+
         if (glyph_idx == 0 && codepoint != ' ') {
             temp_glyphs[i].bitmap = NULL;
             temp_glyphs[i].width = 0;
@@ -182,7 +182,7 @@ glyph_atlas_t glyph_atlas_create(const char* font_path, float pixel_height, cons
             atlas.chars[i].codepoint = codepoint;
             continue;
         }
-        
+
         int width, height, xoff, yoff;
         unsigned char* bitmap = glyph_ttf_get_glyph_bitmap(&font, glyph_idx, scale, scale,
                                                              &width, &height, &xoff, &yoff);
@@ -203,10 +203,40 @@ glyph_atlas_t glyph_atlas_create(const char* font_path, float pixel_height, cons
 
         atlas.chars[i].codepoint = codepoint;
         atlas.chars[i].advance = temp_glyphs[i].advance;
-        
+
         total_width += width + 4;
         if (height > max_height) {
             max_height = height;
+        }
+    }
+
+    // Sort glyphs by height descending for better packing
+    int* glyph_order = (int*)GLYPH_MALLOC(charset_len * sizeof(int));
+    if (!glyph_order) {
+        GLYPH_FREE(atlas.chars);
+        atlas.chars = NULL;
+        GLYPH_FREE(temp_glyphs);
+        glyph_ttf_free_font(&font);
+        return atlas;
+    }
+    for (int i = 0; i < charset_len; i++) {
+        glyph_order[i] = i;
+    }
+
+    // Comparison function for qsort
+    typedef struct {
+        temp_glyph_t* glyphs;
+    } sort_context_t;
+    sort_context_t ctx = { temp_glyphs };
+
+    // Bubble sort for simplicity and C compatibility
+    for (int i = 0; i < charset_len - 1; i++) {
+        for (int j = 0; j < charset_len - i - 1; j++) {
+            if (temp_glyphs[glyph_order[j]].height < temp_glyphs[glyph_order[j + 1]].height) {
+                int temp = glyph_order[j];
+                glyph_order[j] = glyph_order[j + 1];
+                glyph_order[j + 1] = temp;
+            }
         }
     }
     
@@ -232,7 +262,8 @@ glyph_atlas_t glyph_atlas_create(const char* font_path, float pixel_height, cons
     row_glyph_t* current_row = (row_glyph_t*)GLYPH_MALLOC(charset_len * sizeof(row_glyph_t));
     int row_count = 0;
 
-    for (int i = 0; i < charset_len; i++) {
+    for (int order_idx = 0; order_idx < charset_len; order_idx++) {
+        int i = glyph_order[order_idx];
         if (!temp_glyphs[i].bitmap || temp_glyphs[i].width == 0) {
             atlas.chars[i].x = 0;
             atlas.chars[i].y = 0;
@@ -339,7 +370,8 @@ glyph_atlas_t glyph_atlas_create(const char* font_path, float pixel_height, cons
     }
     
     GLYPH_FREE(current_row);
-    
+    GLYPH_FREE(glyph_order);
+
     for (int i = 0; i < charset_len; i++) {
         if (temp_glyphs[i].bitmap) {
             if (temp_glyphs[i].is_default) {
@@ -355,7 +387,7 @@ glyph_atlas_t glyph_atlas_create(const char* font_path, float pixel_height, cons
     return atlas;
 }
 
-void glyph_atlas_free(glyph_atlas_t* atlas) {
+static inline void glyph_atlas_free(glyph_atlas_t* atlas) {
     if (!atlas) return;
     if (atlas->chars) {
         GLYPH_FREE(atlas->chars);
@@ -365,17 +397,17 @@ void glyph_atlas_free(glyph_atlas_t* atlas) {
     atlas->num_chars = 0;
 }
 
-int glyph_atlas_save_png(glyph_atlas_t* atlas, const char* output_path) {
+static inline int glyph_atlas_save_png(glyph_atlas_t* atlas, const char* output_path) {
     if (!atlas || !atlas->image.data) return -1;
     return glyph_write_png(output_path, &atlas->image);
 }
 
-int glyph_atlas_save_bmp(glyph_atlas_t* atlas, const char* output_path) {
+static inline int glyph_atlas_save_bmp(glyph_atlas_t* atlas, const char* output_path) {
     if (!atlas || !atlas->image.data) return -1;
     return glyph_write_bmp(output_path, &atlas->image);
 }
 
-int glyph_atlas_save_metadata(glyph_atlas_t* atlas, const char* output_path) {
+static inline int glyph_atlas_save_metadata(glyph_atlas_t* atlas, const char* output_path) {
     if (!atlas || !atlas->chars) return -1;
     
     FILE* f = fopen(output_path, "w");
@@ -399,7 +431,7 @@ int glyph_atlas_save_metadata(glyph_atlas_t* atlas, const char* output_path) {
     return 0;
 }
 
-glyph_atlas_char_t* glyph_atlas_find_char(glyph_atlas_t* atlas, int codepoint) {
+static inline glyph_atlas_char_t* glyph_atlas_find_char(glyph_atlas_t* atlas, int codepoint) {
     if (!atlas || !atlas->chars) return NULL;
     
     for (int i = 0; i < atlas->num_chars; i++) {
@@ -410,7 +442,7 @@ glyph_atlas_char_t* glyph_atlas_find_char(glyph_atlas_t* atlas, int codepoint) {
     return NULL;
 }
 
-void glyph_atlas_print_info(glyph_atlas_t* atlas) {
+static inline void glyph_atlas_print_info(glyph_atlas_t* atlas) {
     if (!atlas) return;
     
     GLYPH_LOG("Font Atlas Info:\n");

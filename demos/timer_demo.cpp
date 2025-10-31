@@ -1,4 +1,3 @@
-// Demo that measures render time per frame and displays average time in real-time
 #include <GLFW/glfw3.h>
 #include <glyph.h>
 #include <string>

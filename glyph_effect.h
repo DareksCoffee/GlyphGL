@@ -102,7 +102,7 @@ static const char* glyph__glow_fragment_shader =
 "    FragColor = vec4(textColor, min(finalAlpha, 1.0));\n"
 "}\n";
 
-glyph_effect_t glyph_effect_create_custom(const char* vertex_shader, const char* fragment_shader) {
+static inline glyph_effect_t glyph_effect_create_custom(const char* vertex_shader, const char* fragment_shader) {
     glyph_effect_t effect = {GLYPH_NONE, vertex_shader, fragment_shader};
     return effect;
 }
@@ -132,7 +132,7 @@ static const char* glyph__rainbow_fragment_shader =
 "    }\n"
 "}\n";
 
-glyph_effect_t glyph_effect_create_glow() {
+static inline glyph_effect_t glyph_effect_create_glow() {
     glyph_effect_t effect = {GLYPH_GLOW, glyph__glow_vertex_shader, glyph__glow_fragment_shader};
     return effect;
 }
@@ -223,32 +223,32 @@ static const char* glyph__neon_fragment_shader =
 "    FragColor = vec4(neonColor, alpha);\n"
 "}\n";
 
-glyph_effect_t glyph_effect_create_rainbow() {
+static inline glyph_effect_t glyph_effect_create_rainbow() {
     glyph_effect_t effect = {GLYPH_RAINBOW, glyph__glow_vertex_shader, glyph__rainbow_fragment_shader};
     return effect;
 }
 
-glyph_effect_t glyph_effect_create_outline() {
+static inline glyph_effect_t glyph_effect_create_outline() {
     glyph_effect_t effect = {GLYPH_OUTLINE, glyph__glow_vertex_shader, glyph__outline_fragment_shader};
     return effect;
 }
 
-glyph_effect_t glyph_effect_create_shadow() {
+static inline glyph_effect_t glyph_effect_create_shadow() {
     glyph_effect_t effect = {GLYPH_SHADOW, glyph__glow_vertex_shader, glyph__shadow_fragment_shader};
     return effect;
 }
 
-glyph_effect_t glyph_effect_create_wave() {
+static inline glyph_effect_t glyph_effect_create_wave() {
     glyph_effect_t effect = {GLYPH_WAVE, glyph__glow_vertex_shader, glyph__wave_fragment_shader};
     return effect;
 }
 
-glyph_effect_t glyph_effect_create_gradient() {
+static inline glyph_effect_t glyph_effect_create_gradient() {
     glyph_effect_t effect = {GLYPH_GRADIENT, glyph__glow_vertex_shader, glyph__gradient_fragment_shader};
     return effect;
 }
 
-glyph_effect_t glyph_effect_create_neon() {
+static inline glyph_effect_t glyph_effect_create_neon() {
     glyph_effect_t effect = {GLYPH_NEON, glyph__glow_vertex_shader, glyph__neon_fragment_shader};
     return effect;
 }

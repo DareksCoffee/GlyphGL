@@ -42,7 +42,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <cstddef>
+#include <stddef.h>
 
 #ifndef GLYPH_NO_GL_LOADER
 

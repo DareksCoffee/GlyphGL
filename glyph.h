@@ -49,12 +49,19 @@
  * | - Added 'GLYPH_LOG''
  * | - Created 'demos' and 'examples' folders
  * | - Added 'glyph_effect.h' that allows custom shader creation and includes many built in shaders
- * v1.0.6 | 2025-10-31
+ * v1.0.6 | 2025-10-30
  * | - Added 'GLYPHGL_MINIMAL' compile-time flag to disable heavy features like effects
  * | - Implemented minimal shader path (no effects, luminance-based alpha) behind compile-time flag
  * | - Deferred large allocations (atlas channel copy) in minimal mode for reduced memory footprint
  * | - Exposed atlas/vertex-buffer sizes as configurable parameters (GLYPHGL_ATLAS_WIDTH, GLYPHGL_ATLAS_HEIGHT, GLYPHGL_VERTEX_BUFFER_SIZE)
  * | - Apps can now pick smaller defaults for memory-constrained environments
+ * v1.0.7 | 2025-10-31
+ * | - Added SDF (Signed Distance Field) support for smoother text rendering at various scales
+ * | - Implemented SDF rendering with configurable spread parameter
+ * | - Added GLYPHGL_SDF flag for enabling SDF mode in glyph_renderer_create
+ * | - Fixed C++ compatibility by changing <cstddef> to <stddef.h> in glyph_gl.h
+ * | - Made library 'true' header-only by adding 'static inline' to all function definitions
+ * | - Resolved multiple definition linker errors when including headers in multiple C/C++ files
  * ========================================================
  */
 
@@ -101,7 +108,7 @@
 #define GLYPHGL_CHARSET_DEFAULT GLYPHGL_CHARSET_BASIC "€£¥¢₹₽±×÷√∫πΩ°∞≠≈≤≥∑∏∂∇∀∃∈∉⊂⊃∩∪←↑→↓"
 
 
-int glyph_utf8_decode(const char* str, size_t* index);
+static int glyph_utf8_decode(const char* str, size_t* index);
 
 typedef struct {
     glyph_atlas_t atlas;
@@ -113,13 +120,15 @@ typedef struct {
     size_t vertex_buffer_size;
     int initialized;
     uint32_t char_type;
+    float cached_text_color[3];
+    int cached_effects;
 #ifndef GLYPHGL_MINIMAL
     glyph_effect_t effect;
 #endif
 } glyph_renderer_t;
 
 
-glyph_renderer_t glyph_renderer_create(const char* font_path, float pixel_height, const char* charset, uint32_t char_type, void* effect, int use_sdf) {
+static inline glyph_renderer_t glyph_renderer_create(const char* font_path, float pixel_height, const char* charset, uint32_t char_type, void* effect, int use_sdf) {
 #ifndef GLYPHGL_MINIMAL
     glyph_effect_t default_effect = {(glyph_effect_type_t)GLYPH_NONE, NULL, NULL};
     if (effect == NULL) {
@@ -221,11 +230,17 @@ glyph_renderer_t glyph_renderer_create(const char* font_path, float pixel_height
         return renderer;
     }
 
+    // Initialize uniform caches
+    renderer.cached_text_color[0] = -1.0f;
+    renderer.cached_text_color[1] = -1.0f;
+    renderer.cached_text_color[2] = -1.0f;
+    renderer.cached_effects = -1;
+
     renderer.initialized = 1;
     return renderer;
 }
 
-void glyph_renderer_free(glyph_renderer_t* renderer) {
+static inline void glyph_renderer_free(glyph_renderer_t* renderer) {
     if (!renderer || !renderer->initialized) return;
 
     glyph__glDeleteVertexArrays(1, &renderer->vao);
@@ -238,7 +253,7 @@ void glyph_renderer_free(glyph_renderer_t* renderer) {
     renderer->initialized = 0;
 }
 
-void glyph_renderer_set_projection(glyph_renderer_t* renderer, int width, int height) {
+static inline void glyph_renderer_set_projection(glyph_renderer_t* renderer, int width, int height) {
     if (!renderer || !renderer->initialized) return;
     
     float projection[16] = {
@@ -253,7 +268,7 @@ void glyph_renderer_set_projection(glyph_renderer_t* renderer, int width, int he
     glyph__glUseProgram(0);
 }
 
-void glyph_renderer_update_projection(glyph_renderer_t* renderer, int width, int height) {
+static inline void glyph_renderer_update_projection(glyph_renderer_t* renderer, int width, int height) {
     if (!renderer || !renderer->initialized) return;
 
     float projection[16] = {
@@ -268,18 +283,27 @@ void glyph_renderer_update_projection(glyph_renderer_t* renderer, int width, int
     glyph__glUseProgram(0);
 }
 
-void glyph_renderer_draw_text(glyph_renderer_t* renderer, const char* text, float x, float y, float scale,
-                                float r, float g, float b, int effects) {
+static inline void glyph_renderer_draw_text(glyph_renderer_t* renderer, const char* text, float x, float y, float scale,
+                                 float r, float g, float b, int effects) {
     if (!renderer || !renderer->initialized) return;
 
     glyph__glUseProgram(renderer->shader);
     glyph__glBindVertexArray(renderer->vao);
     glyph__glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, renderer->texture);
-    glyph__glUniform1i(glyph__glGetUniformLocation(renderer->shader, "textTexture"), 0);
-    glyph__glUniform3f(glyph__glGetUniformLocation(renderer->shader, "textColor"), r, g, b);
+
+    // Batch uniform updates - only update if changed
+    if (renderer->cached_text_color[0] != r || renderer->cached_text_color[1] != g || renderer->cached_text_color[2] != b) {
+        glyph__glUniform3f(glyph__glGetUniformLocation(renderer->shader, "textColor"), r, g, b);
+        renderer->cached_text_color[0] = r;
+        renderer->cached_text_color[1] = g;
+        renderer->cached_text_color[2] = b;
+    }
 #ifndef GLYPHGL_MINIMAL
-    glyph__glUniform1i(glyph__glGetUniformLocation(renderer->shader, "effects"), effects);
+    if (renderer->cached_effects != effects) {
+        glyph__glUniform1i(glyph__glGetUniformLocation(renderer->shader, "effects"), effects);
+        renderer->cached_effects = effects;
+    }
 #endif
 
     size_t text_len = strlen(text);
@@ -399,19 +423,19 @@ void glyph_renderer_draw_text(glyph_renderer_t* renderer, const char* text, floa
     glyph__glUseProgram(0);
 }
 
-GLuint glyph_renderer_get_vao(glyph_renderer_t* renderer) {
+static inline GLuint glyph_renderer_get_vao(glyph_renderer_t* renderer) {
     return renderer->vao;
 }
 
-GLuint glyph_renderer_get_vbo(glyph_renderer_t* renderer) {
+static inline GLuint glyph_renderer_get_vbo(glyph_renderer_t* renderer) {
     return renderer->vbo;
 }
 
-GLuint glyph_renderer_get_shader(glyph_renderer_t* renderer) {
+static inline GLuint glyph_renderer_get_shader(glyph_renderer_t* renderer) {
     return renderer->shader;
 }
 
-int glyph_utf8_decode(const char* str, size_t* index) {
+static inline int glyph_utf8_decode(const char* str, size_t* index) {
     size_t i = *index;
     unsigned char c = (unsigned char)str[i++];
     if (c < 0x80) {
