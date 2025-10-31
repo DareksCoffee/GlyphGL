@@ -53,14 +53,14 @@ typedef struct {
     int on_curve;
 } glyph_point_t;
 
-int glyph_ttf_init(glyph_font_t* font, const unsigned char* data, int offset);
-int glyph_ttf_find_glyph_index(const glyph_font_t* font, int codepoint);
-void glyph_ttf_get_glyph_bbox(const glyph_font_t* font, int glyph_index, glyph_bbox_t* bbox);
-unsigned char* glyph_ttf_get_glyph_bitmap(const glyph_font_t* font, int glyph_index, float scale_x, float scale_y, int* width, int* height, int* xoff, int* yoff);
-void glyph_ttf_free_bitmap(unsigned char* bitmap);
-unsigned char* glyph_ttf_get_glyph_sdf_bitmap(unsigned char* bitmap, int w, int h, int spread);
-float glyph_ttf_scale_for_pixel_height(const glyph_font_t* font, float pixels);
-int glyph_ttf_get_glyph_advance(const glyph_font_t* font, int glyph_index);
+static inline int glyph_ttf_init(glyph_font_t* font, const unsigned char* data, int offset);
+static inline int glyph_ttf_find_glyph_index(const glyph_font_t* font, int codepoint);
+static inline void glyph_ttf_get_glyph_bbox(const glyph_font_t* font, int glyph_index, glyph_bbox_t* bbox);
+static inline unsigned char* glyph_ttf_get_glyph_bitmap(const glyph_font_t* font, int glyph_index, float scale_x, float scale_y, int* width, int* height, int* xoff, int* yoff);
+static inline void glyph_ttf_free_bitmap(unsigned char* bitmap);
+static inline unsigned char* glyph_ttf_get_glyph_sdf_bitmap(unsigned char* bitmap, int w, int h, int spread);
+static inline float glyph_ttf_scale_for_pixel_height(const glyph_font_t* font, float pixels);
+static inline int glyph_ttf_get_glyph_advance(const glyph_font_t* font, int glyph_index);
 
 static int glyph_ttf__isfont(const unsigned char* font);
 static int glyph_ttf__find_table(const unsigned char* data, int fontstart, const char* tag);
@@ -109,7 +109,7 @@ static int glyph_ttf__get32(const unsigned char* data, int offset) {
     return __builtin_bswap32(val);
 }
 
-int glyph_ttf_init(glyph_font_t* font, const unsigned char* data, int offset) {
+static inline int glyph_ttf_init(glyph_font_t* font, const unsigned char* data, int offset) {
     font->data = (unsigned char*)data;
     font->fontstart = offset;
     if (!glyph_ttf__isfont(data + offset)) return 0;
@@ -150,7 +150,7 @@ int glyph_ttf_init(glyph_font_t* font, const unsigned char* data, int offset) {
     return 1;
 }
 
-int glyph_ttf_find_glyph_index(const glyph_font_t* font, int codepoint) {
+static inline int glyph_ttf_find_glyph_index(const glyph_font_t* font, int codepoint) {
     const unsigned char* data = font->data;
     int index_map = font->index_map;
     int format = glyph_ttf__get16u(data, index_map);
@@ -205,7 +205,7 @@ int glyph_ttf_find_glyph_index(const glyph_font_t* font, int codepoint) {
     return 0;
 }
 
-void glyph_ttf_get_glyph_bbox(const glyph_font_t* font, int glyph_index, glyph_bbox_t* bbox) {
+static inline void glyph_ttf_get_glyph_bbox(const glyph_font_t* font, int glyph_index, glyph_bbox_t* bbox) {
     if (glyph_index >= font->numGlyphs) {
         bbox->x0 = bbox->y0 = bbox->x1 = bbox->y1 = 0;
         return;
@@ -222,7 +222,7 @@ void glyph_ttf_get_glyph_bbox(const glyph_font_t* font, int glyph_index, glyph_b
     bbox->y1 = glyph_ttf__get16(data, g + 8);
 }
 
-int glyph_ttf_get_glyph_advance(const glyph_font_t* font, int glyph_index) {
+static inline int glyph_ttf_get_glyph_advance(const glyph_font_t* font, int glyph_index) {
     const unsigned char* data = font->data;
     int numOfLongHorMetrics = glyph_ttf__get16u(data, font->hhea + 34);
     if (glyph_index < numOfLongHorMetrics)
@@ -231,7 +231,7 @@ int glyph_ttf_get_glyph_advance(const glyph_font_t* font, int glyph_index) {
         return glyph_ttf__get16u(data, font->hmtx + 4 * (numOfLongHorMetrics - 1));
 }
 
-float glyph_ttf_scale_for_pixel_height(const glyph_font_t* font, float pixels) {
+static inline float glyph_ttf_scale_for_pixel_height(const glyph_font_t* font, float pixels) {
     const unsigned char* data = font->data;
     int unitsPerEm = glyph_ttf__get16u(data, font->head + 18);
     return pixels / unitsPerEm;
@@ -355,7 +355,7 @@ static void glyph_ttf__rasterize_shape(unsigned char* bitmap, int w, int h, glyp
     GLYPH_FREE(accum);
 }
 
-unsigned char* glyph_ttf_get_glyph_bitmap(const glyph_font_t* font, int glyph_index, float scale_x, float scale_y, int* width, int* height, int* xoff, int* yoff) {
+static inline unsigned char* glyph_ttf_get_glyph_bitmap(const glyph_font_t* font, int glyph_index, float scale_x, float scale_y, int* width, int* height, int* xoff, int* yoff) {
     const unsigned char* data = font->data;
     int g = glyph_ttf__get_glyph_offset(font, glyph_index);
     if (g < 0) {
@@ -520,7 +520,7 @@ unsigned char* glyph_ttf_get_glyph_bitmap(const glyph_font_t* font, int glyph_in
     }
 }
 
-void glyph_ttf_free_bitmap(unsigned char* bitmap) {
+static inline void glyph_ttf_free_bitmap(unsigned char* bitmap) {
     GLYPH_FREE(bitmap);
 }
 
@@ -618,7 +618,7 @@ static void glyph_ttf_free_font(glyph_font_t* font) {
     font->data = NULL;
 }
 
-unsigned char* glyph_ttf_get_glyph_sdf_bitmap(unsigned char* bitmap, int w, int h, int spread) {
+static inline unsigned char* glyph_ttf_get_glyph_sdf_bitmap(unsigned char* bitmap, int w, int h, int spread) {
     unsigned char* mask = (unsigned char*)GLYPH_MALLOC(w * h);
     for(int i = 0; i < w * h; i++) {
         mask[i] = bitmap[i] > 127 ? 1 : 0;

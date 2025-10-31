@@ -13,6 +13,10 @@ A lightweight, header-only text rendering library for OpenGL applications. Glyph
 - **TrueType support**: Built-in font parsing and rasterization
 - **Atlas-based rendering**: Efficient texture packing for optimal performance
 - **Text styling**: Support for bold, italic, and underline effects
+- **Signed Distance Field (SDF) rendering**: Smoother text rendering at various scales
+- **Custom shader effects**: Support for rainbow, glow, and other visual effects
+- **Minimal mode**: Compile-time flag to disable heavy features for reduced memory footprint
+- **Configurable parameters**: Adjustable atlas/vertex-buffer sizes for different environments
 - **Modern OpenGL**: Compatible with OpenGL 3.3+ contexts
 - **Cross-platform**: Works on Windows, macOS, and Linux
 
@@ -46,7 +50,7 @@ int main()
     );
     glfwMakeContextCurrent(window);
     // Setting up Glyph renderer
-    glyph_renderer_t renderer = glyph_renderer_create("font.ttf", 64.0f, NULL, GLYPH_UTF8);
+    glyph_renderer_t renderer = glyph_renderer_create("font.ttf", 64.0f, NULL, GLYPH_UTF8, NULL, 0);
     // Setting up the glyph renderer projection 
     glyph_renderer_set_projection(&renderer, 800, 800);
 
@@ -75,7 +79,7 @@ int main()
 
 ### Core Functions
 
-- `glyph_renderer_create(const char* font_path, float pixel_height, const char* charset)` - Initialize a text renderer
+- `glyph_renderer_create(const char* font_path, float pixel_height, const char* charset, uint32_t char_type, void* effect, int use_sdf)` - Initialize a text renderer
 - `glyph_renderer_free(glyph_renderer_t* renderer)` - Clean up renderer resources
 - `glyph_renderer_set_projection(glyph_renderer_t* renderer, int width, int height)` - Set projection matrix
 - `glyph_renderer_update_projection(glyph_renderer_t* renderer, int width, int height)` - Update the projection matrix
@@ -86,12 +90,20 @@ int main()
 - `GLYPHGL_BOLD` - Render text in bold
 - `GLYPHGL_ITALIC` - Render text in italic
 - `GLYPHGL_UNDERLINE` - Add underline to text
+- `GLYPHGL_SDF` - Enable Signed Distance Field rendering for smoother scaling
 - `GLYPH_NONE` - No effects
+
+### Compile-time Flags
+
+- `GLYPHGL_DEBUG` - Enable debug logging
+- `GLYPHGL_MINIMAL` - Disable effects and reduce memory footprint
+- `GLYPHGL_ATLAS_WIDTH` - Set atlas texture width (default: 2048)
+- `GLYPHGL_ATLAS_HEIGHT` - Set atlas texture height (default: 2048)
+- `GLYPHGL_VERTEX_BUFFER_SIZE` - Set vertex buffer size (default: 73728)
 
 ## Demo
 
 ![demo](https://i.imgur.com/esfelJe.gif)
-
 
 ## Contributing
 
