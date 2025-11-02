@@ -276,9 +276,11 @@ static int glyph_gl_load_functions(void) {
 }
 
 #endif
-
-static const char* glyph__vertex_shader_source = 
-"#version 330 core\n"
+static inline char glyph_glsl_version_str[32] = "#version 330 core\n";
+static inline void glyph_gl_set_opengl_version(int major, int minor) {
+    sprintf(glyph_glsl_version_str, "#version %d%d0 core\n", major, minor);
+}
+static const char* glyph__vertex_shader_body = 
 "layout (location = 0) in vec2 aPos;\n"
 "layout (location = 1) in vec2 aTexCoord;\n"
 "out vec2 TexCoord;\n"
@@ -287,19 +289,17 @@ static const char* glyph__vertex_shader_source =
 "    gl_Position = projection * vec4(aPos, 0.0, 1.0);\n"
 "    TexCoord = aTexCoord;\n"
 "}\n";
-
-static const char* glyph__fragment_shader_source =
-"#version 330 core\n"
+static const char* glyph__fragment_shader_body = 
 "in vec2 TexCoord;\n"
 "out vec4 FragColor;\n"
 "uniform sampler2D textTexture;\n"
 "uniform vec3 textColor;\n"
-#ifndef GLYPHGL_MINIMAL
+"#ifndef GLYPHGL_MINIMAL\n"
 "uniform int effects;\n"
-#endif
+"#endif\n"
 "void main() {\n"
 "    float sample;\n"
-#ifndef GLYPHGL_MINIMAL
+"#ifndef GLYPHGL_MINIMAL\n"
 "    if (TexCoord.x == -1.0 && TexCoord.y == -1.0 && (effects & 4) != 0) {\n"
 "        sample = 1.0;\n"
 "    } else {\n"
@@ -312,13 +312,27 @@ static const char* glyph__fragment_shader_source =
 "    } else {\n"
 "        alpha = sample;\n"
 "    }\n"
-#else
+"#else\n"
 "    sample = texture(textTexture, TexCoord).r;\n"
 "    float dist = sample * 2.0 - 1.0;\n"
 "    float alpha = dist < 0.0 ? 1.0 : 0.0;\n"
-#endif
+"#endif\n"
 "    FragColor = vec4(textColor, alpha);\n"
 "}\n";
+static char glyph__vertex_shader_buffer[2048];
+static char glyph__fragment_shader_buffer[2048];
+static const char* glyph__get_vertex_shader_source() {
+    sprintf(glyph__vertex_shader_buffer, "%s%s", glyph_glsl_version_str, glyph__vertex_shader_body);
+    return glyph__vertex_shader_buffer;
+}
+static const char* glyph__get_fragment_shader_source() {
+    sprintf(glyph__fragment_shader_buffer, "%s%s", glyph_glsl_version_str, glyph__fragment_shader_body);
+    return glyph__fragment_shader_buffer;
+}
+
+static const char* glyph__vertex_shader_source = glyph__get_vertex_shader_source();
+
+static const char* glyph__fragment_shader_source = glyph__get_fragment_shader_source();
 
 static GLuint glyph__compile_shader(GLenum type, const char* source) {
     GLuint shader = glyph__glCreateShader(type);

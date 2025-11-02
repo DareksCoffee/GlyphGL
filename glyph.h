@@ -62,6 +62,9 @@
  * | - Fixed C++ compatibility by changing <cstddef> to <stddef.h> in glyph_gl.h
  * | - Made library 'true' header-only by adding 'static inline' to all function definitions
  * | - Resolved multiple definition linker errors when including headers in multiple C/C++ files
+ * v1.0.8 | 2025-11-02
+ * | - Added 'glyph_gl_set_opengl_version(int major, int minor)' for custom opengl versions.
+ * | - Inlined some functions to avoid C++ errors.
  * ========================================================
  */
 
