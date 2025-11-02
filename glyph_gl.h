@@ -276,7 +276,7 @@ static int glyph_gl_load_functions(void) {
 }
 
 #endif
-static inline char glyph_glsl_version_str[32] = "#version 330 core\n";
+static char glyph_glsl_version_str[32] = "#version 330 core\n";
 static inline void glyph_gl_set_opengl_version(int major, int minor) {
     sprintf(glyph_glsl_version_str, "#version %d%d0 core\n", major, minor);
 }
