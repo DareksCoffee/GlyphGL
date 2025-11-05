@@ -33,26 +33,49 @@
 
 #include "glyph_util.h"
 
+/*
+ * TrueType font structure containing all parsed font data and metadata
+ *
+ * This structure holds the complete state of a loaded TrueType font,
+ * including table offsets, glyph counts, and character mapping information.
+ * It's initialized by glyph_ttf_init() and used throughout the rendering pipeline.
+ */
 typedef struct {
-    unsigned char* data;
-    int fontstart;
-    int numGlyphs;
-    int loca, head, glyf, hhea, hmtx, kern, gpos, cmap;
-    int index_map;
-    int indexToLocFormat;
-    float scale;
+    unsigned char* data;           /* Raw font file data in memory */
+    int fontstart;                 /* Offset to font data in file (for collections) */
+    int numGlyphs;                 /* Total number of glyphs in the font */
+    int loca, head, glyf, hhea, hmtx, kern, gpos, cmap;  /* Offsets to TrueType tables */
+    int index_map;                 /* Offset to character-to-glyph mapping */
+    int indexToLocFormat;          /* Format of loca table (short/long offsets) */
+    float scale;                   /* Current font scale factor */
 } glyph_font_t;
 
+/*
+ * Glyph bounding box and metrics structure
+ *
+ * Contains the geometric bounds of a glyph along with horizontal spacing metrics
+ * needed for text layout and positioning in TrueType fonts.
+ */
 typedef struct {
-    int x0, y0, x1, y1;
-    int advance, left_side_bearing;
+    int x0, y0, x1, y1;           /* Bounding box coordinates in font units */
+    int advance, left_side_bearing; /* Horizontal spacing metrics in font units */
 } glyph_bbox_t;
 
+/*
+ * Glyph outline point structure for TrueType contours
+ *
+ * Represents a single point in a TrueType glyph outline, which can be either
+ * an on-curve point (defining the actual outline) or an off-curve control point
+ * (defining quadratic Bézier curves).
+ */
 typedef struct {
-    float x, y;
-    int on_curve;
+    float x, y;                   /* Point coordinates */
+    int on_curve;                 /* 1 if on curve, 0 if control point */
 } glyph_point_t;
 
+/*
+ * Public API functions for TrueType font processing
+ */
 static inline int glyph_ttf_init(glyph_font_t* font, const unsigned char* data, int offset);
 static inline int glyph_ttf_find_glyph_index(const glyph_font_t* font, int codepoint);
 static inline void glyph_ttf_get_glyph_bbox(const glyph_font_t* font, int glyph_index, glyph_bbox_t* bbox);
@@ -72,11 +95,25 @@ static void glyph_ttf__rasterize_contour(unsigned char* bitmap, int w, int h, gl
 static void glyph_ttf__draw_line_aa(float* accum, int w, int h, float x0, float y0, float x1, float y1);
 static void glyph_ttf__add_edge(float* accum, int w, int h, float x0, float y0, float x1, float y1);
 
+/*
+ * Checks if the given data represents a valid TrueType/OpenType font
+ *
+ * Validates the font signature to distinguish between different font formats:
+ * - "ttcf" for TrueType Collection fonts
+ * - 0x00010000 for standard TrueType fonts
+ * - "OTTO" for OpenType fonts with TrueType outlines
+ * - "true" for some older TrueType fonts
+ *
+ * Parameters:
+ *   font: Pointer to the first 4 bytes of font data
+ *
+ * Returns: 1 if valid TrueType/OpenType font, 0 otherwise
+ */
 static int glyph_ttf__isfont(const unsigned char* font) {
-    return font[0] == 't' && font[1] == 't' && font[2] == 'c' && font[3] == 'f' ||
-           font[0] == 0x00 && font[1] == 0x01 && font[2] == 0x00 && font[3] == 0x00 ||
-           font[0] == 'O' && font[1] == 'T' && font[2] == 'T' && font[3] == 'O' ||
-           font[0] == 't' && font[1] == 'r' && font[2] == 'u' && font[3] == 'e';
+    return font[0] == 't' && font[1] == 't' && font[2] == 'c' && font[3] == 'f' ||     /* TTCF */
+            font[0] == 0x00 && font[1] == 0x01 && font[2] == 0x00 && font[3] == 0x00 || /* TTF */
+            font[0] == 'O' && font[1] == 'T' && font[2] == 'T' && font[3] == 'O' ||     /* OTTO */
+            font[0] == 't' && font[1] == 'r' && font[2] == 'u' && font[3] == 'e';       /* true */
 }
 
 static int glyph_ttf__find_table(const unsigned char* data, int fontstart, const char* tag) {
@@ -237,11 +274,27 @@ static inline float glyph_ttf_scale_for_pixel_height(const glyph_font_t* font, f
     return pixels / unitsPerEm;
 }
 
+/*
+ * Calculates the offset to a specific glyph's data in the glyf table
+ *
+ * Uses the loca (location) table to find where each glyph's outline data
+ * is stored in the glyf table. The loca table format depends on the
+ * indexToLocFormat flag from the head table.
+ *
+ * Parameters:
+ *   font: Font structure
+ *   glyph_index: Index of glyph to locate
+ *
+ * Returns: Offset to glyph data in glyf table, or -1 if glyph is empty
+ */
 static int glyph_ttf__get_glyph_offset(const glyph_font_t* font, int glyph_index) {
     const unsigned char* data = font->data;
+    /* Calculate loca table entry offset based on format */
     int offset = font->loca + glyph_index * (font->indexToLocFormat ? 4 : 2);
+    /* Get glyph data start and end offsets */
     int g1 = font->glyf + (font->indexToLocFormat ? glyph_ttf__get32(data, offset) : glyph_ttf__get16u(data, offset) * 2);
     int g2 = font->glyf + (font->indexToLocFormat ? glyph_ttf__get32(data, offset + 4) : glyph_ttf__get16u(data, offset + 2) * 2);
+    /* Return -1 for empty glyphs (g1 == g2) */
     return g1 == g2 ? -1 : g1;
 }
 
@@ -616,13 +669,33 @@ static void glyph_ttf_free_font(glyph_font_t* font) {
     font->data = NULL;
 }
 
+/*
+ * Converts an alpha bitmap to a Signed Distance Field (SDF) representation
+ *
+ * SDFs store the distance from each pixel to the nearest edge, allowing for
+ * high-quality scaling and effects. This implementation uses a two-pass
+ * distance transform algorithm for accurate distance calculation.
+ *
+ * Parameters:
+ *   bitmap: Input alpha bitmap (0-255 alpha values)
+ *   w, h: Bitmap dimensions
+ *   spread: Maximum distance to encode (in pixels)
+ *
+ * Returns: New SDF bitmap with distance-encoded values (0-255)
+ *          Negative distances (inside) map to 0-127, positive (outside) to 128-255
+ */
 static inline unsigned char* glyph_ttf_get_glyph_sdf_bitmap(unsigned char* bitmap, int w, int h, int spread) {
+    /* Create binary mask from alpha bitmap */
     unsigned char* mask = (unsigned char*)GLYPH_MALLOC(w * h);
     for(int i = 0; i < w * h; i++) {
-        mask[i] = bitmap[i] > 127 ? 1 : 0;
+        mask[i] = bitmap[i] > 127 ? 1 : 0;  /* Threshold to binary */
     }
+
+    /* Distance transform for outside distances (dt1) */
     float* dt1 = (float*)GLYPH_MALLOC(w * h * sizeof(float));
-    for(int i = 0; i < w * h; i++) dt1[i] = mask[i] ? 0.0f : 1e9f;
+    for(int i = 0; i < w * h; i++) dt1[i] = mask[i] ? 0.0f : 1e9f;  /* Init distances */
+
+    /* Forward pass (left to right, top to bottom) */
     for(int y = 0; y < h; y++) {
         for(int x = 0; x < w; x++) {
             int idx = y * w + x;
@@ -643,8 +716,12 @@ static inline unsigned char* glyph_ttf_get_glyph_sdf_bitmap(unsigned char* bitma
             if (y < h-1) dt1[idx] = fminf(dt1[idx], dt1[(y+1)*w + x] + 1.0f);
         }
     }
+
+    /* Distance transform for inside distances (dt0) */
     float* dt0 = (float*)GLYPH_MALLOC(w * h * sizeof(float));
-    for(int i = 0; i < w * h; i++) dt0[i] = mask[i] ? 1e9f : 0.0f;
+    for(int i = 0; i < w * h; i++) dt0[i] = mask[i] ? 1e9f : 0.0f;  /* Init distances */
+
+    /* Forward pass for inside distances */
     for(int y = 0; y < h; y++) {
         for(int x = 0; x < w; x++) {
             int idx = y * w + x;
@@ -665,13 +742,20 @@ static inline unsigned char* glyph_ttf_get_glyph_sdf_bitmap(unsigned char* bitma
             if (y < h-1) dt0[idx] = fminf(dt0[idx], dt0[(y+1)*w + x] + 1.0f);
         }
     }
+
+    /* Generate final SDF bitmap */
     unsigned char* sdf = (unsigned char*)GLYPH_MALLOC(w * h);
     for(int i = 0; i < w * h; i++) {
+        /* Calculate signed distance (negative inside, positive outside) */
         float dist = mask[i] ? -dt0[i] : dt1[i];
+        /* Clamp to spread range */
         if (dist < -spread) dist = -spread;
         if (dist > spread) dist = spread;
+        /* Map to 0-255 range: -spread -> 0, 0 -> 127, +spread -> 255 */
         sdf[i] = (unsigned char)((dist / spread + 1.0f) * 0.5f * 255.0f);
     }
+
+    /* Clean up temporary buffers */
     GLYPH_FREE(mask);
     GLYPH_FREE(dt1);
     GLYPH_FREE(dt0);
