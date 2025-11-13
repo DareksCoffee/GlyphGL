@@ -65,8 +65,9 @@
  * v1.0.8 | 2025-11-02
  * | - Added 'glyph_gl_set_opengl_version(int major, int minor)' for custom opengl versions.
  * | - Inlined some functions to avoid C++ errors.
- * v1.0.9 | 2025-11-06
+ * v1.0.9 | 2025-11-14
  * | - Provided detailed comments on every aspect of the GlyphGL.
+ * | - Renamed variables for readability and consistancy.
  * ========================================================
  */
 
@@ -270,14 +271,14 @@ static inline glyph_renderer_t glyph_renderer_create(const char* font_path, floa
 #ifndef GLYPHGL_MINIMAL
     if (renderer.effect.type == GLYPH_NONE) {
         /* Use default shaders for basic text rendering */
-        renderer.shader = glyph__create_program(glyph__vertex_shader_source, glyph__fragment_shader_source);
+        renderer.shader = glyph__create_program(glyph__get_vertex_shader_source_cached(), glyph__get_fragment_shader_source_cached());
     } else {
         /* Use custom effect shaders for advanced rendering features */
         renderer.shader = glyph__create_program(renderer.effect.vertex_shader, renderer.effect.fragment_shader);
     }
 #else
     /* Minimal mode always uses default shaders */
-    renderer.shader = glyph__create_program(glyph__vertex_shader_source, glyph__fragment_shader_source);
+    renderer.shader = glyph__create_program(glyph__get_vertex_shader_source_cached(), glyph__get_fragment_shader_source_cached());
 #endif
     if (!renderer.shader) {
         /* Cleanup on shader compilation failure */

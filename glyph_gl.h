@@ -41,19 +41,17 @@
 #ifndef __GLYPH_GL_H
 #define __GLYPH_GL_H
 
-/* Platform-specific OpenGL headers (only included when loader is enabled) */
-#ifndef GLYPH_NO_GL_LOADER
-    #if defined(_WIN32) || defined(_WIN64)
-        #include <windows.h>
-        #include <GL/gl.h>  /* Windows OpenGL headers */
-    #elif defined(__APPLE__)
-        #include <TargetConditionals.h>
-        #if TARGET_OS_MAC
-            #include <OpenGL/gl.h>  /* macOS OpenGL headers */
-        #endif
-    #elif defined(__linux__) || defined(__unix__)
-        #include <GL/gl.h>  /* Linux/Unix OpenGL headers */
+/* Platform-specific OpenGL headers */
+#if defined(_WIN32) || defined(_WIN64)
+    #include <windows.h>
+    #include <GL/gl.h>  /* Windows OpenGL headers */
+#elif defined(__APPLE__)
+    #include <TargetConditionals.h>
+    #if TARGET_OS_MAC
+        #include <OpenGL/gl.h>  /* macOS OpenGL headers */
     #endif
+#elif defined(__linux__) || defined(__unix__)
+    #include <GL/gl.h>  /* Linux/Unix OpenGL headers */
 #endif
 
 /* Standard C libraries for memory and string operations */
@@ -153,8 +151,24 @@ typedef void (*PFNGLUNIFORM3FPROC)(GLint location, GLfloat v0, GLfloat v1, GLflo
 typedef void (*PFNGLUNIFORM4FPROC)(GLint location, GLfloat v0, GLfloat v1, GLfloat v2, GLfloat v3);
 typedef void (*PFNGLUNIFORMMATRIX4FVPROC)(GLint location, GLsizei count, GLboolean transpose, const GLfloat *value);
 
-/* Texture and VAO functions */
+/* Texture functions */
 typedef void (*PFNGLACTIVETEXTUREPROC)(GLenum texture);
+typedef void (*PFNGLGENTEXTURESPROC)(GLsizei n, GLuint *textures);
+typedef void (*PFNGLDELETETEXTURESPROC)(GLsizei n, const GLuint *textures);
+typedef void (*PFNGLBINDTEXTUREPROC)(GLenum target, GLuint texture);
+typedef void (*PFNGLPIXELSTOREIPROC)(GLenum pname, GLint param);
+typedef void (*PFNGLTEXIMAGE2DPROC)(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const void *pixels);
+typedef void (*PFNGLTEXPARAMETERIPROC)(GLenum target, GLenum pname, GLint param);
+
+/* Drawing functions */
+typedef void (*PFNGLDRAWARRAYSPROC)(GLenum mode, GLint first, GLsizei count);
+typedef void (*PFNGLVIEWPORTPROC)(GLint x, GLint y, GLsizei width, GLsizei height);
+typedef void (*PFNGLENABLEPROC)(GLenum cap);
+typedef void (*PFNGLBLENDFUNCPROC)(GLenum sfactor, GLenum dfactor);
+typedef void (*PFNGLCLEARCOLORPROC)(GLfloat red, GLfloat green, GLfloat blue, GLfloat alpha);
+typedef void (*PFNGLCLEARPROC)(GLbitfield mask);
+
+/* VAO functions */
 typedef void (*PFNGLGENVERTEXARRAYSPROC)(GLsizei n, GLuint *arrays);
 typedef void (*PFNGLDELETEVERTEXARRAYSPROC)(GLsizei n, const GLuint *arrays);
 typedef void (*PFNGLBINDVERTEXARRAYPROC)(GLuint array);
@@ -199,23 +213,54 @@ static PFNGLUNIFORM3FPROC glyph__glUniform3f;
 static PFNGLUNIFORM4FPROC glyph__glUniform4f;
 static PFNGLUNIFORMMATRIX4FVPROC glyph__glUniformMatrix4fv;
 
-/* Textures and VAOs */
+/* Textures */
 static PFNGLACTIVETEXTUREPROC glyph__glActiveTexture;
+static PFNGLGENTEXTURESPROC glyph__glGenTextures;
+static PFNGLDELETETEXTURESPROC glyph__glDeleteTextures;
+static PFNGLBINDTEXTUREPROC glyph__glBindTexture;
+static PFNGLPIXELSTOREIPROC glyph__glPixelStorei;
+static PFNGLTEXIMAGE2DPROC glyph__glTexImage2D;
+static PFNGLTEXPARAMETERIPROC glyph__glTexParameteri;
+
+/* Drawing */
+static PFNGLDRAWARRAYSPROC glyph__glDrawArrays;
+static PFNGLVIEWPORTPROC glyph__glViewport;
+static PFNGLENABLEPROC glyph__glEnable;
+static PFNGLBLENDFUNCPROC glyph__glBlendFunc;
+static PFNGLCLEARCOLORPROC glyph__glClearColor;
+static PFNGLCLEARPROC glyph__glClear;
+
+/* VAOs */
 static PFNGLGENVERTEXARRAYSPROC glyph__glGenVertexArrays;
 static PFNGLDELETEVERTEXARRAYSPROC glyph__glDeleteVertexArrays;
 static PFNGLBINDVERTEXARRAYPROC glyph__glBindVertexArray;
 
 #if defined(_WIN32) || defined(_WIN64)
+    static HMODULE glyph__opengl_dll = NULL;
     #define GLYPH_GL_LOAD_PROC(type, name) \
         glyph__##name = (type)wglGetProcAddress(#name); \
+        if (!glyph__##name) { \
+            if (!glyph__opengl_dll) { \
+                glyph__opengl_dll = LoadLibraryA("opengl32.dll"); \
+            } \
+            if (glyph__opengl_dll) { \
+                glyph__##name = (type)GetProcAddress(glyph__opengl_dll, #name); \
+            } \
+        } \
         if (!glyph__##name) { \
             GLYPH_LOG("Failed to load OpenGL function: %s\n", #name); \
             return 0; \
         }
 #elif defined(__APPLE__)
     #include <dlfcn.h>
+    static void* glyph__opengl_handle = NULL;
     #define GLYPH_GL_LOAD_PROC(type, name) \
-        glyph__##name = (type)dlsym(RTLD_DEFAULT, #name); \
+        if (!glyph__opengl_handle) { \
+            glyph__opengl_handle = dlopen("/System/Library/Frameworks/OpenGL.framework/OpenGL", RTLD_LAZY | RTLD_GLOBAL); \
+        } \
+        if (glyph__opengl_handle) { \
+            glyph__##name = (type)dlsym(glyph__opengl_handle, #name); \
+        } \
         if (!glyph__##name) { \
             GLYPH_LOG("Failed to load OpenGL function: %s\n", #name); \
             return 0; \
@@ -293,14 +338,77 @@ static int glyph_gl_load_functions(void) {
     GLYPH_GL_LOAD_PROC(PFNGLUNIFORM4FPROC, glUniform4f);
     GLYPH_GL_LOAD_PROC(PFNGLUNIFORMMATRIX4FVPROC, glUniformMatrix4fv);
 
-    /* Load texture and VAO functions */
+    /* Load texture functions */
     GLYPH_GL_LOAD_PROC(PFNGLACTIVETEXTUREPROC, glActiveTexture);
+    GLYPH_GL_LOAD_PROC(PFNGLGENTEXTURESPROC, glGenTextures);
+    GLYPH_GL_LOAD_PROC(PFNGLDELETETEXTURESPROC, glDeleteTextures);
+    GLYPH_GL_LOAD_PROC(PFNGLBINDTEXTUREPROC, glBindTexture);
+    GLYPH_GL_LOAD_PROC(PFNGLPIXELSTOREIPROC, glPixelStorei);
+    GLYPH_GL_LOAD_PROC(PFNGLTEXIMAGE2DPROC, glTexImage2D);
+    GLYPH_GL_LOAD_PROC(PFNGLTEXPARAMETERIPROC, glTexParameteri);
+
+    /* Load drawing functions */
+    GLYPH_GL_LOAD_PROC(PFNGLDRAWARRAYSPROC, glDrawArrays);
+    GLYPH_GL_LOAD_PROC(PFNGLVIEWPORTPROC, glViewport);
+    GLYPH_GL_LOAD_PROC(PFNGLENABLEPROC, glEnable);
+    GLYPH_GL_LOAD_PROC(PFNGLBLENDFUNCPROC, glBlendFunc);
+    GLYPH_GL_LOAD_PROC(PFNGLCLEARCOLORPROC, glClearColor);
+    GLYPH_GL_LOAD_PROC(PFNGLCLEARPROC, glClear);
+
+    /* Load VAO functions */
     GLYPH_GL_LOAD_PROC(PFNGLGENVERTEXARRAYSPROC, glGenVertexArrays);
     GLYPH_GL_LOAD_PROC(PFNGLDELETEVERTEXARRAYSPROC, glDeleteVertexArrays);
     GLYPH_GL_LOAD_PROC(PFNGLBINDVERTEXARRAYPROC, glBindVertexArray);
 
     return 1; /* Success - all functions loaded */
 }
+
+/* Define macros to map standard OpenGL function names to loaded function pointers */
+#define glGenBuffers glyph__glGenBuffers
+#define glDeleteBuffers glyph__glDeleteBuffers
+#define glBindBuffer glyph__glBindBuffer
+#define glBufferData glyph__glBufferData
+#define glBufferSubData glyph__glBufferSubData
+#define glCreateShader glyph__glCreateShader
+#define glDeleteShader glyph__glDeleteShader
+#define glShaderSource glyph__glShaderSource
+#define glCompileShader glyph__glCompileShader
+#define glGetShaderiv glyph__glGetShaderiv
+#define glGetShaderInfoLog glyph__glGetShaderInfoLog
+#define glCreateProgram glyph__glCreateProgram
+#define glDeleteProgram glyph__glDeleteProgram
+#define glAttachShader glyph__glAttachShader
+#define glLinkProgram glyph__glLinkProgram
+#define glGetProgramiv glyph__glGetProgramiv
+#define glGetProgramInfoLog glyph__glGetProgramInfoLog
+#define glUseProgram glyph__glUseProgram
+#define glGetAttribLocation glyph__glGetAttribLocation
+#define glGetUniformLocation glyph__glGetUniformLocation
+#define glVertexAttribPointer glyph__glVertexAttribPointer
+#define glEnableVertexAttribArray glyph__glEnableVertexAttribArray
+#define glDisableVertexAttribArray glyph__glDisableVertexAttribArray
+#define glUniform1i glyph__glUniform1i
+#define glUniform1f glyph__glUniform1f
+#define glUniform2f glyph__glUniform2f
+#define glUniform3f glyph__glUniform3f
+#define glUniform4f glyph__glUniform4f
+#define glUniformMatrix4fv glyph__glUniformMatrix4fv
+#define glActiveTexture glyph__glActiveTexture
+#define glGenTextures glyph__glGenTextures
+#define glDeleteTextures glyph__glDeleteTextures
+#define glBindTexture glyph__glBindTexture
+#define glPixelStorei glyph__glPixelStorei
+#define glTexImage2D glyph__glTexImage2D
+#define glTexParameteri glyph__glTexParameteri
+#define glGenVertexArrays glyph__glGenVertexArrays
+#define glDeleteVertexArrays glyph__glDeleteVertexArrays
+#define glBindVertexArray glyph__glBindVertexArray
+#define glDrawArrays glyph__glDrawArrays
+#define glViewport glyph__glViewport
+#define glEnable glyph__glEnable
+#define glBlendFunc glyph__glBlendFunc
+#define glClearColor glyph__glClearColor
+#define glClear glyph__glClear
 
 #else
 
@@ -344,7 +452,7 @@ static int glyph_gl_load_functions(void) {
 
 #endif
 /* GLSL version string for shader compilation - defaults to OpenGL 3.3 core */
-static inline char glyph_glsl_version_str[32] = "#version 330 core\n";
+static char glyph_glsl_version_str[32] = "#version 330 core\n";
 
 /*
  * Sets the GLSL version string for shader compilation
@@ -435,9 +543,27 @@ static const char* glyph__get_fragment_shader_source() {
     return glyph__fragment_shader_buffer;
 }
 
-/* Pre-generated shader sources for default effects */
-static const char* glyph__vertex_shader_source = glyph__get_vertex_shader_source();
-static const char* glyph__fragment_shader_source = glyph__get_fragment_shader_source();
+/* Pre-generated shader sources for default effects - initialized on first use */
+static char glyph__vertex_shader_source_buffer[2048];
+static char glyph__fragment_shader_source_buffer[2048];
+static const char* glyph__vertex_shader_source = NULL;
+static const char* glyph__fragment_shader_source = NULL;
+
+static const char* glyph__get_vertex_shader_source_cached() {
+    if (!glyph__vertex_shader_source) {
+        sprintf(glyph__vertex_shader_source_buffer, "%s%s", glyph_glsl_version_str, glyph__vertex_shader_body);
+        glyph__vertex_shader_source = glyph__vertex_shader_source_buffer;
+    }
+    return glyph__vertex_shader_source;
+}
+
+static const char* glyph__get_fragment_shader_source_cached() {
+    if (!glyph__fragment_shader_source) {
+        sprintf(glyph__fragment_shader_source_buffer, "%s%s", glyph_glsl_version_str, glyph__fragment_shader_body);
+        glyph__fragment_shader_source = glyph__fragment_shader_source_buffer;
+    }
+    return glyph__fragment_shader_source;
+}
 
 /*
  * Compiles a GLSL shader and returns the shader object
