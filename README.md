@@ -1,24 +1,49 @@
 # GlyphGL
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-A lightweight, header-only text rendering library for OpenGL applications. GlyphGL provides efficient TrueType font rendering with atlas-based texturing, supporting modern OpenGL contexts.
 
 ![logo](https://i.imgur.com/fKiiOrx.png)
+<div align="center">
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Version](https://img.shields.io/badge/version-1.0.9-blue.svg)](https://github.com/DareksCoffee/GlyphGL/releases)
+[![Language](https://img.shields.io/badge/Language-C/C++-brightgreen.svg)](https://en.wikipedia.org/wiki/C_(programming_language))
+[![Platform](https://img.shields.io/badge/Platform-Cross--platform-lightgrey.svg)](https://en.wikipedia.org/wiki/Cross_platform)
+[![Build](https://img.shields.io/badge/Build-Header--only-orange.svg)](https://en.wikipedia.org/wiki/Header-only)
+
+</div>
+
+GlyphGL is a lightweight, header-only text rendering library designed for OpenGL applications. It provides efficient TrueType and OpenType font rendering with atlas-based texturing, supporting modern OpenGL contexts with comprehensive text styling capabilities.
 ## Features
 
-- **Header-only**: No compilation required, just include and use
-- **Zero dependencies**: Custom OpenGL loader for cross-platform compatibility
-- **TrueType support**: Built-in font parsing and rasterization
-- **Atlas-based rendering**: Efficient texture packing for optimal performance
-- **Text styling**: Support for bold, italic, and underline effects
-- **Signed Distance Field (SDF) rendering**: Smoother text rendering at various scales
-- **Custom shader effects**: Support for rainbow, glow, and other visual effects
-- **Minimal mode**: Compile-time flag to disable heavy features for reduced memory footprint
-- **Configurable parameters**: Adjustable atlas/vertex-buffer sizes for different environments
-- **Modern OpenGL**: Compatible with OpenGL 3.3+ contexts
-- **Cross-platform**: Works on Windows, macOS, and Linux
+**Core Capabilities:**
+- Header-only design with no external dependencies
+- Comprehensive font support including TrueType and OpenType formats
+- Efficient atlas-based texture packing for optimal GPU memory usage
+- Modern OpenGL 3.3+ compatibility with cross-platform support
+
+**Text Rendering Features:**
+- Unicode text rendering with configurable character sets
+- Signed Distance Field (SDF) rendering for crisp text at any scale
+- Sub-pixel positioning for precise text layout
+- Automatic font hinting and anti-aliasing
+
+**Visual Effects and Styling:**
+- Text styling options including bold, italic, and underline
+- Custom shader effects such as rainbow and glow animations
+- Configurable text color, scale, and opacity
+- Real-time animated text effects with time-based uniforms
+
+**Performance and Optimization:**
+- Minimal compilation mode for reduced memory footprint
+- Configurable atlas dimensions (default: 2048×2048)
+- Adjustable vertex buffer size for different application requirements
+- Efficient glyph caching and texture management
+
+**Development Features:**
+- Debug logging capabilities for development workflows
+- Dynamic projection matrix updates for responsive applications
+- Simple API with comprehensive error handling
+- Support for multiple windowing systems (GLFW, GLUT, WinAPI, X11)
 
 ## Quick Start
 
@@ -28,10 +53,26 @@ A lightweight, header-only text rendering library for OpenGL applications. Glyph
 ```
 git clone https://github.com/DareksCoffee/GlyphGL.git
 ```
-3. Include `glyph.h` in your project
+3. Include `glyph.h` in your project    
 4. Link against OpenGL and any required system libraries
 
-## Usage Example
+## Quick Start
+
+### Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/DareksCoffee/GlyphGL.git
+```
+
+2. Include the header in your project:
+```c
+#include <glyph.h>
+```
+
+3. Link against OpenGL and your preferred windowing system
+
+### Basic Usage
 
 ```c
 #include <GLFW/glfw3.h>
@@ -39,22 +80,20 @@ git clone https://github.com/DareksCoffee/GlyphGL.git
 
 int main()
 {
-    // Initialize GLFW
+    // Initialize windowing system
     glfwInit();
-    // Set the opengl context to be version 3.3+
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    // Creating GLFW window
-    GLFWwindow* window = glfwCreateWindow(
-        800, 800, "GLFW Glyph Example", NULL, NULL
-    );
+    
+    GLFWwindow* window = glfwCreateWindow(800, 600, "GlyphGL Example", NULL, NULL);
     glfwMakeContextCurrent(window);
-    // Setting up Glyph renderer
-    glyph_renderer_t renderer = glyph_renderer_create("font.ttf", 64.0f, NULL, GLYPH_UTF8, NULL, 0);
-    // Setting up the glyph renderer projection 
-    glyph_renderer_set_projection(&renderer, 800, 800);
+    
+    // Create text renderer
+    glyph_renderer_t renderer = glyph_renderer_create("font.ttf", 64.0f,
+                                                     NULL, GLYPH_UTF8, NULL, 0);
+    glyph_renderer_set_projection(&renderer, 800, 600);
 
-    // Enabling alphha blend
+    // Enable blending for smooth text
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -63,47 +102,51 @@ int main()
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        // Rendering the text "Hello, GlyphGL!"
-        glyph_renderer_draw_text(&renderer, "Hello, GlyphGL!", 50.0f, 300.0f, 1.0f, 1.0f, 1.0f, 1.0f, GLYPH_NONE);
+        // Render text
+        glyph_renderer_draw_text(&renderer, "Hello, GlyphGL!",
+                                50.0f, 300.0f, 1.0f, 1.0f, 1.0f, 1.0f, GLYPH_NONE);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
+    
     glyph_renderer_free(&renderer);
-    glfwDestroyWindow(window);
     glfwTerminate();
     return 0;
 }
 ```
-## API Reference
 
-### Core Functions
+### Advanced Features
 
-- `glyph_renderer_create(const char* font_path, float pixel_height, const char* charset, uint32_t char_type, void* effect, int use_sdf)` - Initialize a text renderer
-- `glyph_renderer_free(glyph_renderer_t* renderer)` - Clean up renderer resources
-- `glyph_renderer_set_projection(glyph_renderer_t* renderer, int width, int height)` - Set projection matrix
-- `glyph_renderer_update_projection(glyph_renderer_t* renderer, int width, int height)` - Update the projection matrix
-- `glyph_renderer_draw_text(glyph_renderer_t* renderer, const char* text, float x, float y, float scale, float r, float g, float b, int effects)` - Render text
+**Text Effects:**
+```c
+// Apply bold and italic styling
+glyph_renderer_draw_text(&renderer, "Styled Text", x, y, scale, r, g, b, GLYPHGL_BOLD | GLYPHGL_ITALIC);
 
-### Text Effects
+// Use Signed Distance Field rendering
+glyph_renderer_t sdf_renderer = glyph_renderer_create("font.ttf", 64.0f,
+                                                    NULL, GLYPH_UTF8, NULL, 1);
+```
 
-- `GLYPHGL_BOLD` - Render text in bold
-- `GLYPHGL_ITALIC` - Render text in italic
-- `GLYPHGL_UNDERLINE` - Add underline to text
-- `GLYPHGL_SDF` - Enable Signed Distance Field rendering for smoother scaling
-- `GLYPH_NONE` - No effects
+**Custom Shader Effects:**
+```c
+// Create and apply custom effect
+glyph_effect_t rainbow_effect = glyph_effect_create_rainbow();
+glyph_renderer_t effect_renderer = glyph_renderer_create("font.ttf", 64.0f,
+                                                        NULL, GLYPH_UTF8, &rainbow_effect, 0);
+```
+## Library Dependencies
 
-### Compile-time Flags
+The following libraries are used in the provided demos and examples:
 
-- `GLYPHGL_DEBUG` - Enable debug logging
-- `GLYPHGL_MINIMAL` - Disable effects and reduce memory footprint
-- `GLYPHGL_ATLAS_WIDTH` - Set atlas texture width (default: 2048)
-- `GLYPHGL_ATLAS_HEIGHT` - Set atlas texture height (default: 2048)
-- `GLYPHGL_VERTEX_BUFFER_SIZE` - Set vertex buffer size (default: 73728)
+**Graphics and Window Management:**
+- GLFW 3.x - Window creation and input handling
+- OpenGL - Graphics rendering
+- GLUT - Alternative window management (legacy)
 
-## Demo
-
-![demo](https://i.imgur.com/esfelJe.gif)
+**Platform-Specific:**
+- Windows API (WinAPI) - Native Windows application development
+- X11 - Unix/Linux window system interface
 
 ## Contributing
 

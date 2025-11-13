@@ -14,6 +14,16 @@
 #define GLYPH_UTIL_H
 
 #include <stdlib.h>
+#include <stdint.h>
+
+/* Portable byte swap functions for C99 compatibility */
+static inline uint16_t glyph__bswap16(uint16_t val) {
+    return (val << 8) | (val >> 8);
+}
+
+static inline uint32_t glyph__bswap32(uint32_t val) {
+    return ((val & 0xFF) << 24) | ((val & 0xFF00) << 8) | ((val & 0xFF0000) >> 8) | ((val & 0xFF000000) >> 24);
+}
 
 /*
  * Memory allocation macro - defaults to standard malloc

@@ -130,20 +130,20 @@ static int glyph_ttf__find_table(const unsigned char* data, int fontstart, const
 static int glyph_ttf__get16(const unsigned char* data, int offset) {
     uint16_t val;
     memcpy(&val, data + offset, 2);
-    val = __builtin_bswap16(val);
+    val = glyph__bswap16(val);
     return (int16_t)val;
 }
 
 static unsigned int glyph_ttf__get16u(const unsigned char* data, int offset) {
     uint16_t val;
     memcpy(&val, data + offset, 2);
-    return __builtin_bswap16(val);
+    return glyph__bswap16(val);
 }
 
 static int glyph_ttf__get32(const unsigned char* data, int offset) {
     uint32_t val;
     memcpy(&val, data + offset, 4);
-    return __builtin_bswap32(val);
+    return glyph__bswap32(val);
 }
 
 static inline int glyph_ttf_init(glyph_font_t* font, const unsigned char* data, int offset) {
