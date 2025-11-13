@@ -45,16 +45,6 @@ GlyphGL is a lightweight, header-only text rendering library designed for OpenGL
 - Simple API with comprehensive error handling
 - Support for multiple windowing systems (GLFW, GLUT, WinAPI, X11)
 
-## Quick Start
-
-## Installation
-
-1. Clone this repo:
-```
-git clone https://github.com/DareksCoffee/GlyphGL.git
-```
-3. Include `glyph.h` in your project    
-4. Link against OpenGL and any required system libraries
 
 ## Quick Start
 
