@@ -150,19 +150,19 @@ static int glyph_utf8_decode(const char* str, size_t* index);
  * for batching, and cached uniform values for performance optimization.
  */
 typedef struct {
-    glyph_atlas_t atlas;              /* Glyph atlas containing pre-rasterized character data */
-    GLuint texture;                   /* OpenGL texture object for atlas storage */
-    GLuint shader;                    /* Compiled shader program for text rendering */
-    GLuint vao;                       /* Vertex Array Object for vertex attribute setup */
-    GLuint vbo;                       /* Vertex Buffer Object for batched vertex data */
-    float* vertex_buffer;             /* CPU-side vertex buffer for batching glyph quads */
-    size_t vertex_buffer_size;        /* Current allocated size of vertex buffer (in floats) */
-    int initialized;                  /* Flag indicating if renderer was successfully created */
-    uint32_t char_type;               /* Character encoding type (ASCII or UTF-8) */
-    float cached_text_color[3];       /* Cached RGB color values to avoid redundant uniform updates */
-    int cached_effects;               /* Cached effects bitmask to avoid redundant uniform updates */
+    glyph_atlas_t atlas;                /* Glyph atlas containing pre-rasterized character data */
+    GLuint texture;                     /* OpenGL texture object for atlas storage */
+    GLuint shader;                      /* Compiled shader program for text rendering */
+    GLuint vao;                         /* Vertex Array Object for vertex attribute setup */
+    GLuint vbo;                         /* Vertex Buffer Object for batched vertex data */
+    float* vertex_buffer;               /* CPU-side vertex buffer for batching glyph quads */
+    size_t vertex_buffer_size;          /* Current allocated size of vertex buffer (in floats) */
+    int initialized;                    /* Flag indicating if renderer was successfully created */
+    glyph_encoding_type_t char_type;    /* Character encoding type (ASCII or UTF-8) */
+    float cached_text_color[3];         /* Cached RGB color values to avoid redundant uniform updates */
+    int cached_effects;                 /* Cached effects bitmask to avoid redundant uniform updates */
 #ifndef GLYPHGL_MINIMAL
-    glyph_effect_t effect;            /* Custom shader effect configuration (disabled in minimal mode) */
+    glyph_effect_t effect;              /* Custom shader effect configuration (disabled in minimal mode) */
 #endif
 } glyph_renderer_t;
 
@@ -181,17 +181,17 @@ typedef struct {
  *   font_path: Path to the TrueType (.ttf) font file
  *   pixel_height: Desired font size in pixels (affects glyph quality and atlas size)
  *   charset: String containing all characters to include in the atlas
- *   char_type: Character encoding (GLYPH_UTF8 or GLYPH_ASCII)
+ *   char_type: Character encoding (GLYPH_ENCODING_UTF8 or GLYPH_ENCODING_ASCII)
  *   effect: Pointer to glyph_effect_t struct for custom shaders (NULL for default)
  *   use_sdf: Enable SDF rendering (GLYPHGL_SDF flag) for scalable text
  *
  * Returns: Initialized glyph_renderer_t struct, or zero-initialized struct on failure
  *          Check renderer.initialized field to verify success
  */
-static inline glyph_renderer_t glyph_renderer_create(const char* font_path, float pixel_height, const char* charset, uint32_t char_type, void* effect, int use_sdf) {
+static inline glyph_renderer_t glyph_renderer_create(const char* font_path, float pixel_height, const char* charset, glyph_encoding_type_t char_type, void* effect, int use_sdf) {
     /* Set up default effect if none provided (only in full mode) */
 #ifndef GLYPHGL_MINIMAL
-    glyph_effect_t default_effect = {(glyph_effect_type_t)GLYPH_NONE, NULL, NULL};
+    glyph_effect_t default_effect = {(glyph_effect_type_t)GLYPH_EFFECT_NONE, NULL, NULL};
     if (effect == NULL) {
         effect = &default_effect;
     }
@@ -269,7 +269,7 @@ static inline glyph_renderer_t glyph_renderer_create(const char* font_path, floa
 
     /* Create shader program - use custom effect shaders or default based on configuration */
 #ifndef GLYPHGL_MINIMAL
-    if (renderer.effect.type == GLYPH_NONE) {
+    if (renderer.effect.type == GLYPH_EFFECT_NONE) {
         /* Use default shaders for basic text rendering */
         renderer.shader = glyph__create_program(glyph__get_vertex_shader_source_cached(), glyph__get_fragment_shader_source_cached());
     } else {
@@ -489,7 +489,7 @@ static inline void glyph_renderer_draw_text(glyph_renderer_t* renderer, const ch
     while (i < text_len) {
         /* Decode next character based on encoding type */
         int codepoint;
-        if (renderer->char_type == GLYPH_UTF8) {
+        if (renderer->char_type == GLYPH_ENCODING_UTF8) {
             codepoint = glyph_utf8_decode(text, &i); /* Handle multi-byte UTF-8 sequences */
         } else {
             codepoint = (unsigned char)text[i]; /* Simple ASCII byte */

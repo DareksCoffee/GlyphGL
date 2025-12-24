@@ -80,7 +80,7 @@ int main()
     
     // Create text renderer
     glyph_renderer_t renderer = glyph_renderer_create("font.ttf", 64.0f,
-                                                     NULL, GLYPH_UTF8, NULL, 0);
+                                                     NULL, GLYPH_ENCODING_UTF8, NULL, 0);
     glyph_renderer_set_projection(&renderer, 800, 600);
 
     // Enable blending for smooth text
@@ -94,7 +94,7 @@ int main()
 
         // Render text
         glyph_renderer_draw_text(&renderer, "Hello, GlyphGL!",
-                                50.0f, 300.0f, 1.0f, 1.0f, 1.0f, 1.0f, GLYPH_NONE);
+                                50.0f, 300.0f, 1.0f, 1.0f, 1.0f, 1.0f, GLYPH_EFFECT_NONE);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -115,7 +115,7 @@ glyph_renderer_draw_text(&renderer, "Styled Text", x, y, scale, r, g, b, GLYPHGL
 
 // Use Signed Distance Field rendering
 glyph_renderer_t sdf_renderer = glyph_renderer_create("font.ttf", 64.0f,
-                                                    NULL, GLYPH_UTF8, NULL, 1);
+                                                    NULL, GLYPH_ENCODING_UTF8, NULL, 1);
 ```
 
 **Custom Shader Effects:**
@@ -123,7 +123,7 @@ glyph_renderer_t sdf_renderer = glyph_renderer_create("font.ttf", 64.0f,
 // Create and apply custom effect
 glyph_effect_t rainbow_effect = glyph_effect_create_rainbow();
 glyph_renderer_t effect_renderer = glyph_renderer_create("font.ttf", 64.0f,
-                                                        NULL, GLYPH_UTF8, &rainbow_effect, 0);
+                                                        NULL, GLYPH_ENCODING_UTF8, &rainbow_effect, 0);
 ```
 ## Library Dependencies
 

@@ -44,9 +44,11 @@
 #include "glyph_truetype.h"
 
 /* Character encoding type flags */
-#define GLYPH_NONE           0      /* No special encoding */
-#define GLYPH_UTF8           0x010  /* UTF-8 multi-byte character support */
-#define GLYPH_ASCII          0x020  /* Simple ASCII single-byte encoding */
+typedef enum {
+    GLYPH_ENCODING_NONE  = 0,        /* No special encoding */
+    GLYPH_ENCODING_UTF8  = 0x010,    /* UTF-8 multi-byte character support */
+    GLYPH_ENCODING_ASCII = 0x020,    /* Simple ASCII single-byte encoding */
+} glyph_encoding_type_t;
 
 /* Default atlas texture dimensions - can be overridden at compile time */
 #define GLYPHGL_ATLAS_WIDTH 2048   /* Default atlas width in pixels */
@@ -191,12 +193,12 @@ static int glyph_atlas__next_pow2(int v) {
  *   font_path: Path to .ttf font file
  *   pixel_height: Font size for rasterization (affects quality/detail)
  *   charset: String containing all characters to include
- *   char_type: GLYPH_UTF8 or GLYPH_ASCII encoding type
+ *   char_type: GLYPH_ENCODING_UTF8 or GLYPH_ENCODING_ASCII encoding type
  *   use_sdf: Enable Signed Distance Field rendering (smoother scaling)
  *
  * Returns: Complete glyph_atlas_t or zero-initialized struct on failure
  */
-static inline glyph_atlas_t glyph_atlas_create(const char* font_path, float pixel_height, const char* charset, uint32_t char_type, int use_sdf) {
+static inline glyph_atlas_t glyph_atlas_create(const char* font_path, float pixel_height, const char* charset, glyph_encoding_type_t char_type, int use_sdf) {
     /* Initialize atlas structure */
     glyph_atlas_t atlas = {0};
 
@@ -216,7 +218,7 @@ static inline glyph_atlas_t glyph_atlas_create(const char* font_path, float pixe
 
     /* Use default ASCII charset if none provided */
     if (!charset) {
-        if (char_type == GLYPH_UTF8) {
+        if (char_type == GLYPH_ENCODING_UTF8) {
             charset = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
         } else {
             charset = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
@@ -225,7 +227,7 @@ static inline glyph_atlas_t glyph_atlas_create(const char* font_path, float pixe
 
     /* Calculate number of characters in charset (handles UTF-8 multi-byte) */
     int charset_len;
-    if (char_type == GLYPH_UTF8) {
+    if (char_type == GLYPH_ENCODING_UTF8) {
         charset_len = 0;
         size_t idx = 0;
         /* Count UTF-8 codepoints by decoding each sequence */
@@ -274,7 +276,7 @@ static inline glyph_atlas_t glyph_atlas_create(const char* font_path, float pixe
     for (int i = 0; i < charset_len; i++) {
         /* Decode next character from charset */
         int codepoint;
-        if (char_type == GLYPH_UTF8) {
+        if (char_type == GLYPH_ENCODING_UTF8) {
             codepoint = glyph_atlas_utf8_decode(charset, &charset_idx);
         } else {
             codepoint = (unsigned char)charset[i];

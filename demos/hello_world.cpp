@@ -11,7 +11,7 @@ int main()
         800, 800, "GLFW Glyph Example (Minimal)", NULL, NULL
     );
     glfwMakeContextCurrent(window);
-    glyph_renderer_t renderer = glyph_renderer_create("font.ttf", 64.0f, NULL, GLYPH_UTF8, NULL, 0);
+    glyph_renderer_t renderer = glyph_renderer_create("font.ttf", 64.0f, NULL, GLYPH_ENCODING_UTF8, NULL, 0);
 
     glyph_renderer_set_projection(&renderer, 800, 800);
 
@@ -23,7 +23,7 @@ int main()
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        glyph_renderer_draw_text(&renderer, "Hello, World! (Minimal Mode)", 50.0f, 300.0f, 1.0f, 1.0f, 1.0f, 1.0f, GLYPH_NONE);
+        glyph_renderer_draw_text(&renderer, "Hello, World! (Minimal Mode)", 50.0f, 300.0f, 1.0f, 1.0f, 1.0f, 1.0f, GLYPH_EFFECT_NONE);
 
         glfwSwapBuffers(window);
         glfwPollEvents();

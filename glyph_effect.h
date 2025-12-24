@@ -21,14 +21,14 @@
 
 /* Enumeration of available built-in effects */
 typedef enum {
-    GLYPH_NONE,     /* No effect - basic text rendering */
-    GLYPH_GLOW,     /* Soft glow/bloom effect around text */
-    GLYPH_RAINBOW,  /* Animated color cycling effect */
-    GLYPH_OUTLINE,  /* Black outline around glyphs */
-    GLYPH_SHADOW,   /* Drop shadow effect */
-    GLYPH_WAVE,     /* Wavy distortion animation */
-    GLYPH_GRADIENT, /* Vertical color gradient */
-    GLYPH_NEON      /* Pulsating neon glow effect */
+    GLYPH_EFFECT_NONE,      /* No effect - basic text rendering */
+    GLYPH_EFFECT_GLOW,      /* Soft glow/bloom effect around text */
+    GLYPH_EFFECT_RAINBOW,   /* Animated color cycling effect */
+    GLYPH_EFFECT_OUTLINE,   /* Black outline around glyphs */
+    GLYPH_EFFECT_SHADOW,    /* Drop shadow effect */
+    GLYPH_EFFECT_WAVE,      /* Wavy distortion animation */
+    GLYPH_EFFECT_GRADIENT,  /* Vertical color gradient */
+    GLYPH_EFFECT_NEON       /* Pulsating neon glow effect */
 } glyph_effect_type_t;
 
 /*
@@ -152,7 +152,7 @@ static const char* glyph__get_glow_fragment_shader() {
  * Returns: glyph_effect_t configured for custom rendering
  */
 static inline glyph_effect_t glyph_effect_create_custom(const char* vertex_shader, const char* fragment_shader) {
-    glyph_effect_t effect = {GLYPH_NONE, vertex_shader, fragment_shader};
+    glyph_effect_t effect = {GLYPH_EFFECT_NONE, vertex_shader, fragment_shader};
     return effect;
 }
 
@@ -198,7 +198,7 @@ static const char* glyph__get_rainbow_fragment_shader() {
  * Returns: glyph_effect_t configured for glow rendering
  */
 static inline glyph_effect_t glyph_effect_create_glow() {
-    glyph_effect_t effect = {GLYPH_GLOW, glyph__get_glow_vertex_shader(), glyph__get_glow_fragment_shader()};
+    glyph_effect_t effect = {GLYPH_EFFECT_GLOW, glyph__get_glow_vertex_shader(), glyph__get_glow_fragment_shader()};
     return effect;
 }
 
@@ -332,7 +332,7 @@ static const char* glyph__get_neon_fragment_shader() {
  * Returns: glyph_effect_t configured for rainbow rendering
  */
 static inline glyph_effect_t glyph_effect_create_rainbow() {
-    glyph_effect_t effect = {GLYPH_RAINBOW, glyph__get_glow_vertex_shader(), glyph__get_rainbow_fragment_shader()};
+    glyph_effect_t effect = {GLYPH_EFFECT_RAINBOW, glyph__get_glow_vertex_shader(), glyph__get_rainbow_fragment_shader()};
     return effect;
 }
 
@@ -345,7 +345,7 @@ static inline glyph_effect_t glyph_effect_create_rainbow() {
  * Returns: glyph_effect_t configured for outline rendering
  */
 static inline glyph_effect_t glyph_effect_create_outline() {
-    glyph_effect_t effect = {GLYPH_OUTLINE, glyph__get_glow_vertex_shader(), glyph__get_outline_fragment_shader()};
+    glyph_effect_t effect = {GLYPH_EFFECT_OUTLINE, glyph__get_glow_vertex_shader(), glyph__get_outline_fragment_shader()};
     return effect;
 }
 
@@ -358,7 +358,7 @@ static inline glyph_effect_t glyph_effect_create_outline() {
  * Returns: glyph_effect_t configured for shadow rendering
  */
 static inline glyph_effect_t glyph_effect_create_shadow() {
-    glyph_effect_t effect = {GLYPH_SHADOW, glyph__get_glow_vertex_shader(), glyph__get_shadow_fragment_shader()};
+    glyph_effect_t effect = {GLYPH_EFFECT_SHADOW, glyph__get_glow_vertex_shader(), glyph__get_shadow_fragment_shader()};
     return effect;
 }
 
@@ -371,7 +371,7 @@ static inline glyph_effect_t glyph_effect_create_shadow() {
  * Returns: glyph_effect_t configured for wave rendering
  */
 static inline glyph_effect_t glyph_effect_create_wave() {
-    glyph_effect_t effect = {GLYPH_WAVE, glyph__get_glow_vertex_shader(), glyph__get_wave_fragment_shader()};
+    glyph_effect_t effect = {GLYPH_EFFECT_WAVE, glyph__get_glow_vertex_shader(), glyph__get_wave_fragment_shader()};
     return effect;
 }
 
@@ -384,7 +384,7 @@ static inline glyph_effect_t glyph_effect_create_wave() {
  * Returns: glyph_effect_t configured for gradient rendering
  */
 static inline glyph_effect_t glyph_effect_create_gradient() {
-    glyph_effect_t effect = {GLYPH_GRADIENT, glyph__get_glow_vertex_shader(), glyph__get_gradient_fragment_shader()};
+    glyph_effect_t effect = {GLYPH_EFFECT_GRADIENT, glyph__get_glow_vertex_shader(), glyph__get_gradient_fragment_shader()};
     return effect;
 }
 
@@ -397,7 +397,7 @@ static inline glyph_effect_t glyph_effect_create_gradient() {
  * Returns: glyph_effect_t configured for neon rendering
  */
 static inline glyph_effect_t glyph_effect_create_neon() {
-    glyph_effect_t effect = {GLYPH_NEON, glyph__get_glow_vertex_shader(), glyph__get_neon_fragment_shader()};
+    glyph_effect_t effect = {GLYPH_EFFECT_NEON, glyph__get_glow_vertex_shader(), glyph__get_neon_fragment_shader()};
     return effect;
 }
 

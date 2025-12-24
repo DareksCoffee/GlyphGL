@@ -11,7 +11,7 @@ int main()
         800, 800, "GLFW Glyph Timer Demo", NULL, NULL
     );
     glfwMakeContextCurrent(window);
-    glyph_renderer_t renderer = glyph_renderer_create("font.ttf", 32.0f, NULL, GLYPH_UTF8, NULL, 1);
+    glyph_renderer_t renderer = glyph_renderer_create("font.ttf", 32.0f, NULL, GLYPH_ENCODING_UTF8, NULL, 1);
 
     glyph_renderer_set_projection(&renderer, 800, 800);
 
