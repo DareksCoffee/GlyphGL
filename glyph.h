@@ -156,7 +156,7 @@ typedef struct {
     GLuint vao;                         /* Vertex Array Object for vertex attribute setup */
     GLuint vbo;                         /* Vertex Buffer Object for batched vertex data */
     float* vertex_buffer;               /* CPU-side vertex buffer for batching glyph quads */
-    size_t vertex_buffer_size;          /* Current allocated size of vertex buffer (in floats) */
+    size_t vertex_buffer_size;          /* Current allocated size of vertex buffer (in bytes) */
     int initialized;                    /* Flag indicating if renderer was successfully created */
     glyph_encoding_type_t char_type;    /* Character encoding type (ASCII or UTF-8) */
     float cached_text_color[3];         /* Cached RGB color values to avoid redundant uniform updates */
@@ -178,7 +178,7 @@ typedef struct {
  * - Initializing performance caches for uniform values
  *
  * Parameters:
- *   font_path: Path to the TrueType (.ttf) font file
+ *   font_data: Pointer to in-memory TrueType (.ttf) font data (caller-owned, not freed)
  *   pixel_height: Desired font size in pixels (affects glyph quality and atlas size)
  *   charset: String containing all characters to include in the atlas
  *   char_type: Character encoding (GLYPH_ENCODING_UTF8 or GLYPH_ENCODING_ASCII)
@@ -188,7 +188,7 @@ typedef struct {
  * Returns: Initialized glyph_renderer_t struct, or zero-initialized struct on failure
  *          Check renderer.initialized field to verify success
  */
-static inline glyph_renderer_t glyph_renderer_create(const char* font_path, float pixel_height, const char* charset, glyph_encoding_type_t char_type, void* effect, int use_sdf) {
+static inline glyph_renderer_t glyph_renderer_create_from_memory(const void* font_data, float pixel_height, const char* charset, glyph_encoding_type_t char_type, void* effect, int use_sdf) {
     /* Set up default effect if none provided (only in full mode) */
 #ifndef GLYPHGL_MINIMAL
     glyph_effect_t default_effect = {(glyph_effect_type_t)GLYPH_EFFECT_NONE, NULL, NULL};
@@ -217,7 +217,7 @@ static inline glyph_renderer_t glyph_renderer_create(const char* font_path, floa
 #endif
 
     /* Generate glyph atlas from font file - this is the core text processing step */
-    renderer.atlas = glyph_atlas_create(font_path, pixel_height, charset, char_type, use_sdf);
+    renderer.atlas = glyph_atlas_create(font_data, pixel_height, charset, char_type, use_sdf);
     if (!renderer.atlas.chars || !renderer.atlas.image.data) {
         #ifdef GLYPHGL_DEBUG
         GLYPH_LOG("Failed to create font atlas\n");
@@ -303,8 +303,8 @@ static inline glyph_renderer_t glyph_renderer_create(const char* font_path, floa
     glyph__glBindVertexArray(0);
 
     /* Allocate CPU-side vertex buffer for batching glyph quads before GPU upload */
-    renderer.vertex_buffer_size = GLYPHGL_VERTEX_BUFFER_SIZE * 4; /* Initial size for vertices (float * 4 per vertex) */
-    renderer.vertex_buffer = (float*)GLYPH_MALLOC(sizeof(float) * renderer.vertex_buffer_size);
+    renderer.vertex_buffer_size = sizeof(float) * GLYPHGL_VERTEX_BUFFER_SIZE * 4; /* bytes; 4 floats per vertex */
+    renderer.vertex_buffer = (float*)GLYPH_MALLOC(renderer.vertex_buffer_size);
     if (!renderer.vertex_buffer) {
         /* Cleanup on memory allocation failure */
         glyph__glDeleteVertexArrays(1, &renderer.vao);
@@ -323,6 +323,57 @@ static inline glyph_renderer_t glyph_renderer_create(const char* font_path, floa
 
     /* Mark renderer as successfully initialized */
     renderer.initialized = 1;
+    return renderer;
+}
+
+/*
+ * Creates and initializes a new glyph renderer with the specified font and configuration
+ *
+ * This function performs the complete setup of a text renderer, including:
+ * - Loading and parsing the TrueType font file
+ * - Generating a glyph atlas with the specified character set
+ * - Creating OpenGL texture, shader, and buffer objects
+ * - Setting up vertex attributes for batched rendering
+ * - Initializing performance caches for uniform values
+ *
+ * Parameters:
+ *   font_path: Path to the TrueType (.ttf) font file
+ *   pixel_height: Desired font size in pixels (affects glyph quality and atlas size)
+ *   charset: String containing all characters to include in the atlas
+ *   char_type: Character encoding (GLYPH_ENCODING_UTF8 or GLYPH_ENCODING_ASCII)
+ *   effect: Pointer to glyph_effect_t struct for custom shaders (NULL for default)
+ *   use_sdf: Enable SDF rendering (GLYPHGL_SDF flag) for scalable text
+ *
+ * Returns: Initialized glyph_renderer_t struct, or zero-initialized struct on failure
+ *          Check renderer.initialized field to verify success
+ */
+static inline glyph_renderer_t glyph_renderer_create(const char* font_path, float pixel_height, const char* charset, glyph_encoding_type_t char_type, void* effect, int use_sdf) {
+    glyph_renderer_t renderer = {0};
+
+    FILE* fp = fopen(font_path, "rb");
+    if (!fp) {
+        #ifdef GLYPHGL_DEBUG
+        GLYPH_LOG("Failed to open font file: %s\n", font_path);
+        #endif
+        return renderer;
+    }
+    fseek(fp, 0, SEEK_END);
+    size_t font_size = (size_t)ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+    void* font_data = GLYPH_MALLOC(font_size);
+    if (!font_data) {
+        fclose(fp);
+        return renderer;
+    }
+    size_t read = fread(font_data, 1, font_size, fp);
+    fclose(fp);
+    if (read != font_size) {
+        GLYPH_FREE(font_data);
+        return renderer;
+    }
+
+    renderer = glyph_renderer_create_from_memory(font_data, pixel_height, charset, char_type, effect, use_sdf);
+    GLYPH_FREE(font_data);
     return renderer;
 }
 

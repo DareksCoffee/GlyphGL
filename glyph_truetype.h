@@ -48,6 +48,7 @@ typedef struct {
     int index_map;                 /* Offset to character-to-glyph mapping */
     int indexToLocFormat;          /* Format of loca table (short/long offsets) */
     float scale;                   /* Current font scale factor */
+    int owns_data;                 /* If set, glyph_ttf_free_font frees font_data, otherwise caller owns it */
 } glyph_font_t;
 
 /*
@@ -149,6 +150,7 @@ static int glyph_ttf__get32(const unsigned char* data, int offset) {
 static inline int glyph_ttf_init(glyph_font_t* font, const unsigned char* data, int offset) {
     font->data = (unsigned char*)data;
     font->fontstart = offset;
+    font->owns_data = 0;
     if (!glyph_ttf__isfont(data + offset)) return 0;
 
     font->cmap = glyph_ttf__find_table(data, offset, "cmap");
@@ -660,13 +662,18 @@ static int glyph_ttf_load_font_from_file(glyph_font_t* font, const char* filenam
     fread(data, 1, size, f);
     fclose(f);
     int result = glyph_ttf_init(font, data, 0);
-    if (!result) GLYPH_FREE(data);
+    if (!result) {
+        GLYPH_FREE(data);
+        return result;
+    }
+    font->owns_data = 1;
     return result;
 }
 
 static void glyph_ttf_free_font(glyph_font_t* font) {
-    if (font->data) GLYPH_FREE(font->data);
+    if (font->owns_data && font->data) GLYPH_FREE(font->data);
     font->data = NULL;
+    font->owns_data = 0;
 }
 
 /*

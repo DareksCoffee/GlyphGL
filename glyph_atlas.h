@@ -180,7 +180,7 @@ static int glyph_atlas__next_pow2(int v) {
  * Creates a font atlas by rasterizing and packing glyphs into a texture
  *
  * This is the core atlas generation function that:
- * 1. Loads the font file (TTF)
+ * 1. Parses the in-memory TTF data
  * 2. Rasterizes each character in the charset
  * 3. Optionally converts to SDF for scalable rendering
  * 4. Packs glyphs efficiently into a 2D texture atlas
@@ -190,7 +190,7 @@ static int glyph_atlas__next_pow2(int v) {
  * to minimize wasted texture space while maintaining efficient access patterns.
  *
  * Parameters:
- *   font_path: Path to .ttf font file
+ *   font_data: Pointer to in-memory .ttf font data (caller-owned)
  *   pixel_height: Font size for rasterization (affects quality/detail)
  *   charset: String containing all characters to include
  *   char_type: GLYPH_ENCODING_UTF8 or GLYPH_ENCODING_ASCII encoding type
@@ -198,7 +198,8 @@ static int glyph_atlas__next_pow2(int v) {
  *
  * Returns: Complete glyph_atlas_t or zero-initialized struct on failure
  */
-static inline glyph_atlas_t glyph_atlas_create(const char* font_path, float pixel_height, const char* charset, glyph_encoding_type_t char_type, int use_sdf) {
+
+static inline glyph_atlas_t glyph_atlas_create(const void* font_data, float pixel_height, const char* charset, glyph_encoding_type_t char_type, int use_sdf) {
     /* Initialize atlas structure */
     glyph_atlas_t atlas = {0};
 
@@ -207,8 +208,8 @@ static inline glyph_atlas_t glyph_atlas_create(const char* font_path, float pixe
     float scale; /* Font units to pixel conversion factor */
 
     /* Load TrueType font */
-    if (!glyph_ttf_load_font_from_file(&ttf_font, font_path)) {
-        GLYPH_LOG("Failed to load TTF font: %s\n", font_path);
+    if (!glyph_ttf_init(&ttf_font, (const unsigned char*)font_data, 0)) {
+        GLYPH_LOG("Failed to load TTF font from memory\n");
         return atlas;
     }
     scale = glyph_ttf_scale_for_pixel_height(&ttf_font, pixel_height);
